@@ -121,6 +121,18 @@ class IdxdDB<T> {
             .then(_.tap(publish));
     }
 
+    deleteBy<K extends keyof T>(store: K, range: (keyrange: typeof IDBKeyRange) => IDBKeyRange) {
+        const publish = (r: T[K][]) => this._events.emit('change', {
+            type: 'delete',
+            store,
+            records: r
+        });
+
+        return this.getBy(store, range)
+            .then(_.tap<T[K][]>(() => new Promise(Crud.delBy<T, K>(this._db, store, range(this._IDBKeyRange)))))
+            .then(_.tap(publish));
+    }
+
     bulkDelete<K extends keyof T>(store: K, keys: any[]) {
         type Rs = T[K][];
         const publish = (r: Rs) => this._events.emit('change', {

@@ -121,6 +121,17 @@ export const del = <T, K extends keyof T>(db: IDBDatabase, store: K, key: any) =
     };
 };
 
+/* delete by key range */
+export const delBy = <T, K extends keyof T>(db: IDBDatabase, store: K, range: IDBKeyRange) => {
+    return (resolve: Function, reject: Function) => {
+        transaction(db, store, 'rw')(
+            $store => request($store.delete(range), _.matchAll(resolve), _.reject(reject)),
+            _.reject(reject)
+        );
+    };
+};
+
+
 /**
  * clear store records
  */
