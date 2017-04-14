@@ -8,7 +8,7 @@
         "adjacent-overload-signatures": true,
         "member-access": false,
         "member-ordering": [
-            true,
+            false,
             {
                 "order": [
                     "public-instance-field",
