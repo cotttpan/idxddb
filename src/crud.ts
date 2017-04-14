@@ -15,91 +15,106 @@
  * TODO: getBy(range => {})
  * TODO: deleteBy(range => {})
  * TODO: clear(store)
- * TODO: Promise依存解消 - Promise依存はidxddbの方で持てば良いのでは
- * TODO: 全体的なリファクタリング - handleReq()などなど
  */
-export namespace CrudApi {
-    /**
-     * idb transaction抽象
-     * NOTE: trx.onerrorとtrx.onabortを同じonerror handlerで受けているので変更の可能性がある
-     */
-    export const transaction = (db: IDBDatabase, storeName: string, mode: 'r' | 'rw' = 'r') => {
-        return (onsuccess: (store: IDBObjectStore) => any, onerror: TrxHandler) => {
-            const trx = db.transaction(storeName, parseTrxMode(mode));
-            onsuccess(trx.objectStore(storeName));
-            trx.onabort = onerror;
-            trx.onerror = onerror;
-        };
-    };
+export type ReqHandler = (this: IDBRequest, ev: Event) => any;
+export type TrxHandler = (this: IDBTransaction, ev: Event) => any;
 
-    /**
-     * get record from primary key
-     */
-    export const get = <T, K extends keyof T>(db: IDBDatabase, storeName: K, key: any) => {
-        return new Promise<T[K] | undefined>((resolve, reject) => {
-            transaction(db, storeName)(
-                store => handleReq(reaction.simple(resolve), reaction.reject(reject))(store.get(key)),
-                reaction.reject(reject)
-            );
-        });
+/**
+ * idb transaction抽象
+ * NOTE: trx.onerrorとtrx.onabortを同じonerror handlerで受けているので変更の可能性がある
+ */
+export const transaction = (db: IDBDatabase, store: string, mode: 'r' | 'rw' = 'r') => {
+    return (onsuccess: (store: IDBObjectStore) => any, onerror: TrxHandler) => {
+        const trx = db.transaction(store, parseTrxMode(mode));
+        onsuccess(trx.objectStore(store));
+        trx.onabort = onerror;
+        trx.onerror = onerror;
     };
+};
 
-    /**
-     * get all store record
-     */
-    export const getAll = <T, K extends keyof T>(db: IDBDatabase, storeName: K) => {
-        return new Promise<T[K][]>((resolve, reject) => {
-            transaction(db, storeName)(
-                store => handleReq(reaction.matchAll(resolve), reaction.reject(reject))(store.openCursor()),
-                reaction.reject(reject)
-            );
-        });
+/**
+ * transaction mode parser
+ */
+export const parseTrxMode = (mode: 'r' | 'rw') => {
+    return mode === 'rw' ? 'readwrite' : 'readonly';
+};
+
+/**
+ * IDBRequestのhandling抽象
+ */
+export const request = (req: IDBRequest, onsuccess: ReqHandler, onerror: ReqHandler) => {
+    req.onsuccess = onsuccess;
+    req.onerror = onerror;
+};
+
+/**
+ * get record from primary key
+ */
+export const get = <T, K extends keyof T>(resolve: Function, reject: Function) => {
+    return (db: IDBDatabase, store: K, key: any) => {
+        transaction(db, store)(
+            $store => request($store.get(key), _.simple(resolve), _.reject(reject)),
+            _.reject(reject)
+        );
     };
+};
 
-    export const find = <T, K extends keyof T>(db: IDBDatabase, storeName: K, index: string, range?: IDBKeyRange) => {
-        return new Promise<T[K][] | undefined>((resolve, reject) => {
-            transaction(db, storeName)(
-                store => handleReq(reaction.matchAll(resolve), reaction.reject(reject))(store.index(index).openCursor(range)),
-                reaction.reject(reject)
-            );
-        });
+/**
+ * get all store record
+ */
+export const getAll = <T, K extends keyof T>(resolve: Function, reject: Function) => {
+    return (db: IDBDatabase, store: K) => {
+        transaction(db, store)(
+            $store => request($store.openCursor(), _.matchAll(resolve), _.reject(reject)),
+            _.reject(reject)
+        );
     };
+};
 
-    /**
-     * set record to store
-     */
-    export const set = <T, K extends keyof T>(db: IDBDatabase, storeName: K, record: T[K], key?: any) => {
-        return new Promise<T[K]>((resolve, reject) => {
-            transaction(db, storeName, 'rw')(
-                store => handleReq(reaction.simple(resolve), reaction.reject(reject))(store.put(record, key)),
-                reaction.reject(reject)
-            );
-        }).then((k: any) => get<T, K>(db, storeName, k));
+/**
+ * find by index and range
+ */
+export const find = <T, K extends keyof T>(resolve: Function, reject: Function) => {
+    return (db: IDBDatabase, store: K, index: string, range?: IDBKeyRange) => {
+        transaction(db, store, 'rw')(
+            $store => request(
+                $store.index(index).openCursor(range),
+                _.matchAll(resolve),
+                _.reject(reject)
+            ),
+            _.reject(reject)
+        );
     };
+};
 
-    /**
-     * delete record
-     * NOTE: keyにprimary keyを受け取って単一recordをdeleteすることを想定している
-     */
-    export const del = <T, K extends keyof T>(db: IDBDatabase, storeName: K, key: any) => {
-        let record: T[K] | undefined;
-        const _del = () => new Promise<any>((resolve, reject) => {
-            transaction(db, storeName, 'rw')(
-                store => handleReq(reaction.simple(resolve), reaction.reject(reject))(store.delete(key)),
-                reaction.reject(reject)
-            );
-        });
-        return get<T, K>(db, storeName, key)
-            .then(r => record = r)
-            .then(_del)
-            .then(() => record); // return Promise<deleted record>
+/**
+ * set record to store
+ */
+export const set = <T, K extends keyof T>(resolve: Function, reject: Function) => {
+    return (db: IDBDatabase, store: K, record: T[K], key?: any) => {
+        transaction(db, store, 'rw')(
+            $store => request($store.put(record, key), _.simple(resolve), _.reject(reject)),
+            _.reject(reject)
+        );
     };
-}
+};
 
+/**
+ * delete record
+ * NOTE: keyにprimary keyを受け取って単一recordをdeleteすることを想定している
+ */
+export const del = <T, K extends keyof T>(resolve: Function, reject: Function) => {
+    return (db: IDBDatabase, store: K, key: any) => {
+        transaction(db, store, 'rw')(
+            $store => request($store.delete(key), _.simple(resolve), _.reject(reject)),
+            _.reject(reject)
+        );
+    };
+};
 /**
  * crud apiのonsuccess handler(domain logic)
  */
-namespace reaction {
+namespace _ {
     /**
      * curd apiの共通のerror handler
      */
@@ -132,23 +147,3 @@ namespace reaction {
         };
     };
 }
-
-/**
- * transaction mode parser
- */
-export const parseTrxMode = (mode: 'r' | 'rw') => {
-    return mode === 'rw' ? 'readwrite' : 'readonly';
-};
-
-/**
- * IDBRequestのhandling抽象
- */
-export const handleReq = (onsuccess: ReqHandler, onerror: ReqHandler) => {
-    return (req: IDBRequest) => {
-        req.onsuccess = onsuccess;
-        req.onerror = onerror;
-    };
-};
-
-export type ReqHandler = (this: IDBRequest, ev: Event) => any;
-export type TrxHandler = (this: IDBTransaction, ev: Event) => any;
