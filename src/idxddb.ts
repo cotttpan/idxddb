@@ -3,7 +3,7 @@ import * as Luncher from './luncher';
 import * as Crud from './crud';
 import * as _ from './utils';
 
-class IdxdDB<T> {
+export class IdxdDB<T> {
     readonly databaseName: string;
     protected _db: IDBDatabase;
     protected _IDBFactory: IDBFactory;
@@ -18,6 +18,9 @@ class IdxdDB<T> {
         this._IDBKeyRange = options.IDBKeyRange || IDBKeyRange;
     }
 
+    /* ====================================
+     * Getter Property
+    ======================================= */
     get isOpen() {
         return this._isOpen;
     }
@@ -34,10 +37,9 @@ class IdxdDB<T> {
         return this._IDBKeyRange;
     }
 
-    on<K extends keyof EventTypes<T>>(event: K, listener: Listener<EventTypes<T>, K>) {
-        this._events.on(event, listener);
-    }
-
+    /* ====================================
+     * Database
+    ======================================= */
     version(no: number, schema: Luncher.Schema) {
         this._versions.set(no, schema);
         return this;
@@ -68,103 +70,145 @@ class IdxdDB<T> {
         return this;
     }
 
+    /* ====================================
+     * Event
+    ======================================= */
+    on<K extends keyof EventTypes<T>>(event: K, listener: Listener<EventTypes<T>, K>) {
+        this._events.on(event, listener);
+    }
+
+    protected _publisher<T>(type: 'set' | 'delete', store: string) {
+        return (records: T) => this._events.emit('change', {
+            type,
+            store: store as any,
+            records: ([] as any).concat(records)
+        });
+    }
+
+    /* ====================================
+     * CRUD API
+    ======================================= */
+    /**
+     * Get record from store by primary key.
+     * @example
+     * get('books', 1)
+     */
     get<K extends keyof T>(store: K, key: any) {
         return new Promise<T[K] | undefined>(Crud.get<T, K>(this._db, store, key));
     }
 
+    /**
+     * Get record from store by key range
+     * @example
+     * get('books', range => range.bound(1, 10))
+     */
     getBy<K extends keyof T>(store: K, range: (keyrange: typeof IDBKeyRange) => IDBKeyRange) {
         return new Promise<T[K][]>(Crud.getBy<T, K>(this._db, store, range(this._IDBKeyRange)));
     }
 
+    /**
+     * Get all record from store
+     * @example
+     * getAll('books')
+     */
     getAll<K extends keyof T>(store: K) {
         return new Promise<T[K][]>(Crud.getAll<T, K>(this._db, store));
     }
 
+    /**
+     * Find record from store by index and key range
+     * @example
+     * find('books', 'page', range => range.bound(300, 500))
+     */
     find<K extends keyof T>(store: K, index: keyof T[K], range?: (keyrange: typeof IDBKeyRange) => IDBKeyRange) {
         const _range = range ? range(this._IDBKeyRange) : undefined;
         return new Promise<T[K][] | undefined>(Crud.find<T, K>(this._db, store, index, _range));
     }
 
+    /**
+     * Set record to store
+     * This method use 'IDBStoreObject.put()' in internal.
+     * @example
+     * set('books', { id: 1, title: 'IdxdDB', page: 10 })
+     */
     set<K extends keyof T>(store: K, record: T[K], key?: any) {
-        const publish = (r: T[K]) => this._events.emit('change', {
-            type: 'set',
-            store,
-            records: [r]
-        });
-
-        return new Promise<T[K]>(Crud.set<T, K>(this._db, store, record, key))
-            .then(() => this.get(store, key)).then(_.tap(publish));
+        type R = T[K];
+        return new Promise<R>(Crud.set<T, K>(this._db, store, record, key))
+            .then(() => this.get(store, key))
+            .then(_.tap(this._publisher<R>('set', store)));
     }
 
+    /**
+     * Set record to store by Array of record
+     * @example
+     * bulkSet('books', [
+     *   { id: 1, title: 'IdxdDB', page: 10 },
+     *   { id: 1, title: 'IdxdDB2', page: 20 }
+     * ])
+     */
     bulkSet<K extends keyof T>(store: K, records: T[K][]) {
-        const publish = (r: T[K][]) => this._events.emit('change', {
-            type: 'set',
-            store,
-            records: r
-        });
-
-        const set = (r: T[K]) => new Promise<T[K]>(Crud.set<T, K>(this._db, store, r))
+        const _set = (r: T[K]) => new Promise<T[K]>(Crud.set<T, K>(this._db, store, r))
             .then((k: any) => this.get(store, k));
 
-        return Promise.all(records.map(set)).then(_.tap(publish));
+        return Promise.all(records.map(_set))
+            .then(_.tap(this._publisher<T[K][]>('set', store)));
     }
 
+    /**
+     * Delete record from store by primary key
+     * @example
+     * delete('books', 1)
+     */
     delete<K extends keyof T>(store: K, key: any) {
-        const publish = (r: T[K]) => this._events.emit('change', {
-            type: 'delete',
-            store,
-            records: [r]
-        });
-
         return this.get(store, key)
             .then(_.tap<T[K]>(() => new Promise(Crud.del<T, K>(this._db, store, key))))
-            .then(_.tap(publish));
+            .then(_.tap(this._publisher<T[K] | undefined>('delete', store)));
     }
 
+    /**
+     * Delete record from store by key range
+     * @example
+     * deleteBy('books', range => range.bound(1, 10))
+     */
     deleteBy<K extends keyof T>(store: K, range: (keyrange: typeof IDBKeyRange) => IDBKeyRange) {
-        const publish = (r: T[K][]) => this._events.emit('change', {
-            type: 'delete',
-            store,
-            records: r
-        });
-
+        type R = T[K][];
         return this.getBy(store, range)
-            .then(_.tap<T[K][]>(() => new Promise(Crud.delBy<T, K>(this._db, store, range(this._IDBKeyRange)))))
-            .then(_.tap(publish));
+            .then(_.tap<R>(() => new Promise(Crud.delBy<T, K>(this._db, store, range(this._IDBKeyRange)))))
+            .then(_.tap(this._publisher<R>('delete', store)));
     }
 
+    /**
+     * Delete records from store by Array of primary key.
+     * bulkDelete('books', [1, 2])
+     */
     bulkDelete<K extends keyof T>(store: K, keys: any[]) {
-        type Rs = T[K][];
-        const publish = (r: Rs) => this._events.emit('change', {
-            type: 'delete',
-            store,
-            records: r
-        });
-
+        type R = T[K][];
         const del = () => Promise.all(keys.map((k: any) => {
             return new Promise(Crud.del<T, K>(this._db, store, k));
         }));
 
         return Promise.all(keys.map((k) => this.get(store, k)))
-            .then<Rs>((r: Rs) => r.filter(v => _.existy(v)))
-            .then(_.tap<Rs>(del))
-            .then(_.tap(publish));
+            .then<R>((r: R) => r.filter(v => _.existy(v)))
+            .then(_.tap<R>(del))
+            .then(_.tap(this._publisher<R>('delete', store)));
     }
 
+    /**
+     * Clear All record from store
+     * @example
+     * clear('books')
+     */
     clear<K extends keyof T>(store: K) {
-        const publish = (r: T[K][]) => this._events.emit('change', {
-            type: 'delete',
-            store,
-            records: r
-        });
+        type R = T[K][];
         return this.getAll(store)
             .then(_.tap(() => new Promise(Crud.clear<T, K>(this._db, store))))
-            .then(_.tap(publish));
+            .then(_.tap(this._publisher<R>('delete', store)));
     }
 }
 
-export { IdxdDB };
-
+/* ====================================
+ * Types
+======================================= */
 export interface EventTypes<T> {
     ready: IdxdDB<T>;
     error: DOMError;
