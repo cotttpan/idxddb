@@ -12,7 +12,11 @@
 
 /**
  * crud core api
- * TODO: deta取得methodの拡充(indexからとか)
+ * TODO: getBy(range => {})
+ * TODO: deleteBy(range => {})
+ * TODO: clear(store)
+ * TODO: Promise依存解消 - Promise依存はidxddbの方で持てば良いのでは
+ * TODO: 全体的なリファクタリング - handleReq()などなど
  */
 export namespace CrudApi {
     /**
@@ -76,7 +80,6 @@ export namespace CrudApi {
     /**
      * delete record
      * NOTE: keyにprimary keyを受け取って単一recordをdeleteすることを想定している
-     * TODO: delete from KeyRange
      */
     export const del = <T, K extends keyof T>(db: IDBDatabase, storeName: K, key: any) => {
         let record: T[K] | undefined;
