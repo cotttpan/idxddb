@@ -52,6 +52,15 @@ export namespace CrudApi {
         });
     };
 
+    export const find = <T, K extends keyof T>(db: IDBDatabase, storeName: K, index: string, range?: IDBKeyRange) => {
+        return new Promise<T[K][] | undefined>((resolve, reject) => {
+            transaction(db, storeName)(
+                store => handleReq(reaction.matchAll(resolve), reaction.reject(reject))(store.index(index).openCursor(range)),
+                reaction.reject(reject)
+            );
+        });
+    };
+
     /**
      * set record to store
      */

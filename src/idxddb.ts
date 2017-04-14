@@ -76,6 +76,11 @@ class IdxdDB<T> {
         return Crud.getAll<T, K>(this._db, store);
     }
 
+    find<K extends keyof T>(store: K, index: keyof T[K], range?: (keyrange: typeof IDBKeyRange) => IDBKeyRange) {
+        const krange = range ? range(this._IDBKeyRange) : undefined;
+        return Crud.find<T, K>(this._db, store, index, krange);
+    }
+
     set<K extends keyof T>(store: K, record: T[K], key?: any) {
         const publish = (r: T[K]) => this._events.emit('change', {
             type: 'set',
@@ -118,6 +123,10 @@ class IdxdDB<T> {
         return Promise.all(keys.map(k => Crud.del<T, K>(this._db, store, k)))
             .then(exists)
             .then(_.tap(publish)) as Promise<T[K][]>;
+    }
+
+    clear() {
+
     }
 }
 /* expose
