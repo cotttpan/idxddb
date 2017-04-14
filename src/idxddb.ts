@@ -149,8 +149,19 @@ class IdxdDB<T> {
             .then(_.tap(publish));
     }
 
-    clear() {
+    clear<K extends keyof T>(store: K) {
+        const publish = (r: T[K][]) => this._events.emit('change', {
+            type: 'delete',
+            store,
+            records: r
+        });
+        const _clear = () => new Promise((resolve, reject) => {
+            Crud.clear<T, K>(resolve, reject)(this._db, store);
+        });
 
+        return this.getAll(store)
+            .then(_.tap(_clear))
+            .then(_.tap(publish));
     }
 }
 

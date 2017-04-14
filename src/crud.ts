@@ -14,7 +14,6 @@
  * crud core api
  * TODO: getBy(range => {})
  * TODO: deleteBy(range => {})
- * TODO: clear(store)
  */
 export type ReqHandler = (this: IDBRequest, ev: Event) => any;
 export type TrxHandler = (this: IDBTransaction, ev: Event) => any;
@@ -111,6 +110,19 @@ export const del = <T, K extends keyof T>(resolve: Function, reject: Function) =
         );
     };
 };
+
+/**
+ * clear store records
+ */
+export const clear = <T, K extends keyof T>(resolve: Function, reject: Function) => {
+    return (db: IDBDatabase, store: K) => {
+        transaction(db, store, 'rw')(
+            $store => request($store.clear(), _.simple(resolve), _.reject(reject)),
+            _.reject(reject)
+        );
+    };
+};
+
 /**
  * crud apiのonsuccess handler(domain logic)
  */
