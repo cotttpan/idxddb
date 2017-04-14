@@ -20,7 +20,7 @@ export type TrxHandler = (this: IDBTransaction, ev: Event) => any;
  * idb transaction抽象
  * NOTE: trx.onerrorとtrx.onabortを同じonerror handlerで受けているので変更の可能性がある
  */
-export const transaction = (db: IDBDatabase, store: string, mode: 'r' | 'rw' = 'r') => {
+export const $trx = (db: IDBDatabase, store: string, mode: 'r' | 'rw' = 'r') => {
     return (onsuccess: (store: IDBObjectStore) => any, onerror: TrxHandler) => {
         const trx = db.transaction(store, parseTrxMode(mode));
         onsuccess(trx.objectStore(store));
@@ -39,7 +39,7 @@ export const parseTrxMode = (mode: 'r' | 'rw') => {
 /**
  * IDBRequestのhandling抽象
  */
-export const request = (req: IDBRequest, onsuccess: ReqHandler, onerror: ReqHandler) => {
+export const $req = (req: IDBRequest, onsuccess: ReqHandler, onerror: ReqHandler) => {
     req.onsuccess = onsuccess;
     req.onerror = onerror;
 };
@@ -49,8 +49,8 @@ export const request = (req: IDBRequest, onsuccess: ReqHandler, onerror: ReqHand
  */
 export const get = <T, K extends keyof T>(db: IDBDatabase, store: K, key: any) => {
     return (resolve: Function, reject: Function) => {
-        transaction(db, store)(
-            $store => request($store.get(key), _.simple(resolve), _.reject(reject)),
+        $trx(db, store)(
+            $store => $req($store.get(key), _.simple(resolve), _.reject(reject)),
             _.reject(reject)
         );
     };
@@ -61,8 +61,8 @@ export const get = <T, K extends keyof T>(db: IDBDatabase, store: K, key: any) =
  */
 export const getBy = <T, K extends keyof T>(db: IDBDatabase, store: K, range: IDBKeyRange) => {
     return (resolve: Function, reject: Function) => {
-        transaction(db, store)(
-            $store => request($store.openCursor(range), _.matchAll(resolve), _.reject(reject)),
+        $trx(db, store)(
+            $store => $req($store.openCursor(range), _.matchAll(resolve), _.reject(reject)),
             _.reject(reject)
         );
     };
@@ -73,8 +73,8 @@ export const getBy = <T, K extends keyof T>(db: IDBDatabase, store: K, range: ID
  */
 export const getAll = <T, K extends keyof T>(db: IDBDatabase, store: K) => {
     return (resolve: Function, reject: Function) => {
-        transaction(db, store)(
-            $store => request($store.openCursor(), _.matchAll(resolve), _.reject(reject)),
+        $trx(db, store)(
+            $store => $req($store.openCursor(), _.matchAll(resolve), _.reject(reject)),
             _.reject(reject)
         );
     };
@@ -85,12 +85,8 @@ export const getAll = <T, K extends keyof T>(db: IDBDatabase, store: K) => {
  */
 export const find = <T, K extends keyof T>(db: IDBDatabase, store: K, index: string, range?: IDBKeyRange) => {
     return (resolve: Function, reject: Function) => {
-        transaction(db, store, 'rw')(
-            $store => request(
-                $store.index(index).openCursor(range),
-                _.matchAll(resolve),
-                _.reject(reject)
-            ),
+        $trx(db, store, 'rw')(
+            $store => $req($store.index(index).openCursor(range), _.matchAll(resolve), _.reject(reject)),
             _.reject(reject)
         );
     };
@@ -101,8 +97,8 @@ export const find = <T, K extends keyof T>(db: IDBDatabase, store: K, index: str
  */
 export const set = <T, K extends keyof T>(db: IDBDatabase, store: K, record: T[K], key?: any) => {
     return (resolve: Function, reject: Function) => {
-        transaction(db, store, 'rw')(
-            $store => request($store.put(record, key), _.simple(resolve), _.reject(reject)),
+        $trx(db, store, 'rw')(
+            $store => $req($store.put(record, key), _.simple(resolve), _.reject(reject)),
             _.reject(reject)
         );
     };
@@ -114,8 +110,8 @@ export const set = <T, K extends keyof T>(db: IDBDatabase, store: K, record: T[K
  */
 export const del = <T, K extends keyof T>(db: IDBDatabase, store: K, key: any) => {
     return (resolve: Function, reject: Function) => {
-        transaction(db, store, 'rw')(
-            $store => request($store.delete(key), _.simple(resolve), _.reject(reject)),
+        $trx(db, store, 'rw')(
+            $store => $req($store.delete(key), _.simple(resolve), _.reject(reject)),
             _.reject(reject)
         );
     };
@@ -124,30 +120,27 @@ export const del = <T, K extends keyof T>(db: IDBDatabase, store: K, key: any) =
 /* delete by key range */
 export const delBy = <T, K extends keyof T>(db: IDBDatabase, store: K, range: IDBKeyRange) => {
     return (resolve: Function, reject: Function) => {
-        transaction(db, store, 'rw')(
-            $store => request($store.delete(range), _.matchAll(resolve), _.reject(reject)),
+        $trx(db, store, 'rw')(
+            $store => $req($store.delete(range), _.matchAll(resolve), _.reject(reject)),
             _.reject(reject)
         );
     };
 };
-
 
 /**
  * clear store records
  */
 export const clear = <T, K extends keyof T>(db: IDBDatabase, store: K) => {
     return (resolve: Function, reject: Function) => {
-        transaction(db, store, 'rw')(
-            $store => request($store.clear(), _.simple(resolve), _.reject(reject)),
+        $trx(db, store, 'rw')(
+            $store => $req($store.clear(), _.simple(resolve), _.reject(reject)),
             _.reject(reject)
         );
     };
 };
 
-/**
- * crud apiのonsuccess handler(domain logic)
- */
 namespace _ {
+
     /**
      * curd apiの共通のerror handler
      */
