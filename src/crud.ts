@@ -49,8 +49,8 @@ export const request = (req: IDBRequest, onsuccess: ReqHandler, onerror: ReqHand
 /**
  * get record from primary key
  */
-export const get = <T, K extends keyof T>(resolve: Function, reject: Function) => {
-    return (db: IDBDatabase, store: K, key: any) => {
+export const get = <T, K extends keyof T>(db: IDBDatabase, store: K, key: any) => {
+    return (resolve: Function, reject: Function) => {
         transaction(db, store)(
             $store => request($store.get(key), _.simple(resolve), _.reject(reject)),
             _.reject(reject)
@@ -61,8 +61,8 @@ export const get = <T, K extends keyof T>(resolve: Function, reject: Function) =
 /**
  * get all store record
  */
-export const getAll = <T, K extends keyof T>(resolve: Function, reject: Function) => {
-    return (db: IDBDatabase, store: K) => {
+export const getAll = <T, K extends keyof T>(db: IDBDatabase, store: K) => {
+    return (resolve: Function, reject: Function) => {
         transaction(db, store)(
             $store => request($store.openCursor(), _.matchAll(resolve), _.reject(reject)),
             _.reject(reject)
@@ -73,8 +73,8 @@ export const getAll = <T, K extends keyof T>(resolve: Function, reject: Function
 /**
  * find by index and range
  */
-export const find = <T, K extends keyof T>(resolve: Function, reject: Function) => {
-    return (db: IDBDatabase, store: K, index: string, range?: IDBKeyRange) => {
+export const find = <T, K extends keyof T>(db: IDBDatabase, store: K, index: string, range?: IDBKeyRange) => {
+    return (resolve: Function, reject: Function) => {
         transaction(db, store, 'rw')(
             $store => request(
                 $store.index(index).openCursor(range),
@@ -89,8 +89,8 @@ export const find = <T, K extends keyof T>(resolve: Function, reject: Function) 
 /**
  * set record to store
  */
-export const set = <T, K extends keyof T>(resolve: Function, reject: Function) => {
-    return (db: IDBDatabase, store: K, record: T[K], key?: any) => {
+export const set = <T, K extends keyof T>(db: IDBDatabase, store: K, record: T[K], key?: any) => {
+    return (resolve: Function, reject: Function) => {
         transaction(db, store, 'rw')(
             $store => request($store.put(record, key), _.simple(resolve), _.reject(reject)),
             _.reject(reject)
@@ -102,8 +102,8 @@ export const set = <T, K extends keyof T>(resolve: Function, reject: Function) =
  * delete record
  * NOTE: keyにprimary keyを受け取って単一recordをdeleteすることを想定している
  */
-export const del = <T, K extends keyof T>(resolve: Function, reject: Function) => {
-    return (db: IDBDatabase, store: K, key: any) => {
+export const del = <T, K extends keyof T>(db: IDBDatabase, store: K, key: any) => {
+    return (resolve: Function, reject: Function) => {
         transaction(db, store, 'rw')(
             $store => request($store.delete(key), _.simple(resolve), _.reject(reject)),
             _.reject(reject)
@@ -114,8 +114,8 @@ export const del = <T, K extends keyof T>(resolve: Function, reject: Function) =
 /**
  * clear store records
  */
-export const clear = <T, K extends keyof T>(resolve: Function, reject: Function) => {
-    return (db: IDBDatabase, store: K) => {
+export const clear = <T, K extends keyof T>(db: IDBDatabase, store: K) => {
+    return (resolve: Function, reject: Function) => {
         transaction(db, store, 'rw')(
             $store => request($store.clear(), _.simple(resolve), _.reject(reject)),
             _.reject(reject)

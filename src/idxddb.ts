@@ -69,22 +69,16 @@ class IdxdDB<T> {
     }
 
     get<K extends keyof T>(store: K, key: any) {
-        return new Promise<T[K] | undefined>((resolve, reject) => {
-            Crud.get<T, K>(resolve, reject)(this._db, store, key);
-        });
+        return new Promise<T[K] | undefined>(Crud.get<T, K>(this._db, store, key));
     }
 
     getAll<K extends keyof T>(store: K) {
-        return new Promise<T[K][]>((resolve, reject) => {
-            Crud.getAll<T, K>(resolve, reject)(this._db, store);
-        });
+        return new Promise<T[K][]>(Crud.getAll<T, K>(this._db, store));
     }
 
     find<K extends keyof T>(store: K, index: keyof T[K], range?: (keyrange: typeof IDBKeyRange) => IDBKeyRange) {
         const _range = range ? range(this._IDBKeyRange) : undefined;
-        return new Promise<T[K][] | undefined>((resolve, reject) => {
-            Crud.find<T, K>(resolve, reject)(this._db, store, index, _range);
-        });
+        return new Promise<T[K][] | undefined>(Crud.find<T, K>(this._db, store, index, _range));
     }
 
     set<K extends keyof T>(store: K, record: T[K], key?: any) {
@@ -94,7 +88,7 @@ class IdxdDB<T> {
             records: [r]
         });
 
-        return new Promise<T[K]>((resolve, reject) => Crud.set<T, K>(resolve, reject)(this._db, store, record, key))
+        return new Promise<T[K]>(Crud.set<T, K>(this._db, store, record, key))
             .then(() => this.get(store, key)).then(_.tap(publish));
     }
 
@@ -105,9 +99,8 @@ class IdxdDB<T> {
             records: r
         });
 
-        const set = (r: T[K]) => new Promise<T[K]>((resolve, reject) => {
-            Crud.set<T, K>(resolve, reject)(this._db, store, r);
-        }).then((k: any) => this.get(store, k));
+        const set = (r: T[K]) => new Promise<T[K]>(Crud.set<T, K>(this._db, store, r))
+            .then((k: any) => this.get(store, k));
 
         return Promise.all(records.map(set)).then(_.tap(publish));
     }
@@ -119,18 +112,13 @@ class IdxdDB<T> {
             records: [r]
         });
 
-        const del = () => new Promise((resolve, reject) => {
-            Crud.del<T, K>(resolve, reject)(this._db, store, key);
-        });
-
         return this.get(store, key)
-            .then(_.tap<T[K]>(del))
+            .then(_.tap<T[K]>(() => new Promise(Crud.del<T, K>(this._db, store, key))))
             .then(_.tap(publish));
     }
 
     bulkDelete<K extends keyof T>(store: K, keys: any[]) {
         type Rs = T[K][];
-        const exists = (r: Rs) => r.filter(v => _.existy(v));
         const publish = (r: Rs) => this._events.emit('change', {
             type: 'delete',
             store,
@@ -138,13 +126,11 @@ class IdxdDB<T> {
         });
 
         const del = () => Promise.all(keys.map((k: any) => {
-            return new Promise((resolve, reject) => {
-                Crud.del<T, K>(resolve, reject)(this._db, store, k);
-            });
+            return new Promise(Crud.del<T, K>(this._db, store, k));
         }));
 
         return Promise.all(keys.map((k) => this.get(store, k)))
-            .then<Rs>(exists)
+            .then<Rs>((r: Rs) => r.filter(v => _.existy(v)))
             .then(_.tap<Rs>(del))
             .then(_.tap(publish));
     }
@@ -155,12 +141,8 @@ class IdxdDB<T> {
             store,
             records: r
         });
-        const _clear = () => new Promise((resolve, reject) => {
-            Crud.clear<T, K>(resolve, reject)(this._db, store);
-        });
-
         return this.getAll(store)
-            .then(_.tap(_clear))
+            .then(_.tap(() => new Promise(Crud.clear<T, K>(this._db, store))))
             .then(_.tap(publish));
     }
 }
