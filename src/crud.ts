@@ -12,8 +12,6 @@
 
 /**
  * crud core api
- * TODO: getBy(range => {})
- * TODO: deleteBy(range => {})
  */
 export type ReqHandler = (this: IDBRequest, ev: Event) => any;
 export type TrxHandler = (this: IDBTransaction, ev: Event) => any;
@@ -53,6 +51,18 @@ export const get = <T, K extends keyof T>(db: IDBDatabase, store: K, key: any) =
     return (resolve: Function, reject: Function) => {
         transaction(db, store)(
             $store => request($store.get(key), _.simple(resolve), _.reject(reject)),
+            _.reject(reject)
+        );
+    };
+};
+
+/**
+ * get by keyrange
+ */
+export const getBy = <T, K extends keyof T>(db: IDBDatabase, store: K, range: IDBKeyRange) => {
+    return (resolve: Function, reject: Function) => {
+        transaction(db, store)(
+            $store => request($store.openCursor(range), _.matchAll(resolve), _.reject(reject)),
             _.reject(reject)
         );
     };

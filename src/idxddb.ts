@@ -72,6 +72,10 @@ class IdxdDB<T> {
         return new Promise<T[K] | undefined>(Crud.get<T, K>(this._db, store, key));
     }
 
+    getBy<K extends keyof T>(store: K, range: (keyrange: typeof IDBKeyRange) => IDBKeyRange) {
+        return new Promise<T[K][]>(Crud.getBy<T, K>(this._db, store, range(this._IDBKeyRange)));
+    }
+
     getAll<K extends keyof T>(store: K) {
         return new Promise<T[K][]>(Crud.getAll<T, K>(this._db, store));
     }
