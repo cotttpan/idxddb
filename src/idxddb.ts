@@ -1,6 +1,6 @@
 import Minitter, { Listener } from 'minitter';
 import * as Luncher from './luncher';
-import * as Crud from './crud';
+import { trx, Request } from './transaction';
 import * as _ from './utils';
 
 export class IdxdDB<T> {
@@ -88,121 +88,80 @@ export class IdxdDB<T> {
     /* ====================================
      * CRUD API
     ======================================= */
-    /**
-     * Get record from store by primary key.
-     * @example
-     * get('books', 1)
-     */
-    get<K extends keyof T>(store: K, key: any) {
-        return new Promise<T[K] | undefined>(Crud.get<T, K>(this._db, store, key));
+    transaction<K extends keyof T>(scope: K | K[], mode: 'r' | 'rw', executor: trx.Executor<T>) {
+        return new Promise<any>((resolve, reject) => {
+            const exec = trx<T>(scope, mode, executor)(resolve, reject);
+
+            if (this.isOpen) {
+                exec(this._db, this._IDBKeyRange);
+            } else {
+                this._events.once('ready', (self) => exec(self.backendDB, self.KeyRange));
+            }
+        });
     }
 
-    /**
-     * Get record from store by key range
-     * @example
-     * get('books', range => range.bound(1, 10))
-     */
-    getBy<K extends keyof T>(store: K, range: (keyrange: typeof IDBKeyRange) => IDBKeyRange) {
-        return new Promise<T[K][]>(Crud.getBy<T, K>(this._db, store, range(this._IDBKeyRange)));
+    get<K extends keyof T>(store: K, key: any): Promise<T[K] | undefined> {
+        return this.transaction(store, 'r', function* (req) {
+            return yield req.get(store, key);
+        });
     }
 
-    /**
-     * Get all record from store
-     * @example
-     * getAll('books')
-     */
-    getAll<K extends keyof T>(store: K) {
-        return new Promise<T[K][]>(Crud.getAll<T, K>(this._db, store));
+    getBy<K extends keyof T>(store: K, range: Request.RangeFunction): Promise<T[K][]>;
+    getBy<K extends keyof T>(store: K, index: keyof T[K], range: Request.RangeFunction): Promise<T[K][]>;
+    getBy<K extends keyof T>(store: K, _a1: any, _a2?: any) {
+        const params = arguments;
+        return this.transaction(store, 'r', function* (req) {
+            return yield req.getBy.apply(req, params);
+        });
     }
 
-    /**
-     * Find record from store by index and key range
-     * @example
-     * find('books', 'page', range => range.bound(300, 500))
-     */
-    find<K extends keyof T>(store: K, index: keyof T[K], range?: (keyrange: typeof IDBKeyRange) => IDBKeyRange) {
-        const _range = range ? range(this._IDBKeyRange) : undefined;
-        return new Promise<T[K][] | undefined>(Crud.find<T, K>(this._db, store, index, _range));
+    getAll<K extends keyof T>(store: K): Promise<T[K][]> {
+        return this.transaction(store, 'r', function* (req) {
+            return yield req.getAll(store);
+        });
     }
 
-    /**
-     * Set record to store
-     * This method use 'IDBStoreObject.put()' in internal.
-     * @example
-     * set('books', { id: 1, title: 'IdxdDB', page: 10 })
-     */
-    set<K extends keyof T>(store: K, record: T[K], key?: any) {
-        type R = T[K];
-        return new Promise<R>(Crud.set<T, K>(this._db, store, record, key))
-            .then(() => this.get(store, key))
-            .then(_.tap(this._publisher<R>('set', store)));
+    set<K extends keyof T>(store: K, record: T[K], key?: any): Promise<T[K]> {
+        return this.transaction(store, 'rw', function* (req) {
+            return yield req.set(store, record, key);
+        });
     }
 
-    /**
-     * Set record to store by Array of record
-     * @example
-     * bulkSet('books', [
-     *   { id: 1, title: 'IdxdDB', page: 10 },
-     *   { id: 1, title: 'IdxdDB2', page: 20 }
-     * ])
-     */
-    bulkSet<K extends keyof T>(store: K, records: T[K][]) {
-        const _set = (r: T[K]) => new Promise<T[K]>(Crud.set<T, K>(this._db, store, r))
-            .then((k: any) => this.get(store, k));
-
-        return Promise.all(records.map(_set))
-            .then(_.tap(this._publisher<T[K][]>('set', store)));
+    bulkSet<K extends keyof T>(store: K, records: T[K][]): Promise<T[K][]> {
+        return this.transaction(store, 'rw', function* (req) {
+            const res: T[K][] = [];
+            for (const r of records) res.push(yield req.set(store, r));
+            return res;
+        });
     }
 
-    /**
-     * Delete record from store by primary key
-     * @example
-     * delete('books', 1)
-     */
-    delete<K extends keyof T>(store: K, key: any) {
-        return this.get(store, key)
-            .then(_.tap<T[K]>(() => new Promise(Crud.del<T, K>(this._db, store, key))))
-            .then(_.tap(this._publisher<T[K] | undefined>('delete', store)));
+    delete<K extends keyof T>(store: K, key: any): Promise<T[K] | undefined> {
+        return this.transaction(store, 'rw', function* (req) {
+            return yield req.delete(store, key);
+        });
     }
 
-    /**
-     * Delete record from store by key range
-     * @example
-     * deleteBy('books', range => range.bound(1, 10))
-     */
-    deleteBy<K extends keyof T>(store: K, range: (keyrange: typeof IDBKeyRange) => IDBKeyRange) {
-        type R = T[K][];
-        return this.getBy(store, range)
-            .then(_.tap<R>(() => new Promise(Crud.delBy<T, K>(this._db, store, range(this._IDBKeyRange)))))
-            .then(_.tap(this._publisher<R>('delete', store)));
+    deleteBy<K extends keyof T>(store: K, range: Request.RangeFunction): Promise<T[K][]>;
+    deleteBy<K extends keyof T>(store: K, index: keyof T[K], range: Request.RangeFunction): Promise<T[K][]>;
+    deleteBy<K extends keyof T>(store: K, _a1: any, _a2?: any) {
+        const params = arguments;
+        return this.transaction(store, 'rw', function* (req) {
+            return yield req.deleteBy.apply(req, params);
+        });
     }
 
-    /**
-     * Delete records from store by Array of primary key.
-     * bulkDelete('books', [1, 2])
-     */
-    bulkDelete<K extends keyof T>(store: K, keys: any[]) {
-        type R = T[K][];
-        const del = () => Promise.all(keys.map((k: any) => {
-            return new Promise(Crud.del<T, K>(this._db, store, k));
-        }));
-
-        return Promise.all(keys.map((k) => this.get(store, k)))
-            .then<R>((r: R) => r.filter(v => _.existy(v)))
-            .then(_.tap<R>(del))
-            .then(_.tap(this._publisher<R>('delete', store)));
+    bulkDelete<K extends keyof T>(store: K, keys: any[]): Promise<T[K][]> {
+        return this.transaction(store, 'rw', function* (req) {
+            const res: T[K][] = [];
+            for (const k of keys) res.push(yield req.delete(store, k));
+            return res;
+        });
     }
 
-    /**
-     * Clear All record from store
-     * @example
-     * clear('books')
-     */
-    clear<K extends keyof T>(store: K) {
-        type R = T[K][];
-        return this.getAll(store)
-            .then(_.tap(() => new Promise(Crud.clear<T, K>(this._db, store))))
-            .then(_.tap(this._publisher<R>('delete', store)));
+    clear<K extends keyof T>(store: K): Promise<T[K][]> {
+        return this.transaction(store, 'rw', function* (req) {
+            return yield req.clear(store);
+        });
     }
 }
 
