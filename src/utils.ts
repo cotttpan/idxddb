@@ -17,3 +17,9 @@ export function tap<T>(fn: (v: T) => any) {
 export function existy(v: any) {
     return !(v === null || v === undefined);
 }
+
+export function bundle(...fns: Function[]) {
+    return function () {
+        fns.forEach(f => f.apply(null, arguments));
+    };
+}

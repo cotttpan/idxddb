@@ -77,20 +77,15 @@ export class IdxdDB<T> {
         this._events.on(event, listener);
     }
 
-    protected _publisher<T>(type: 'set' | 'delete', store: string) {
-        return (records: T) => this._events.emit('change', {
-            type,
-            store: store as any,
-            records: ([] as any).concat(records)
-        });
-    }
-
     /* ====================================
      * CRUD API
     ======================================= */
     transaction<K extends keyof T>(scope: K | K[], mode: 'r' | 'rw', executor: trx.Executor<T>) {
         return new Promise<any>((resolve, reject) => {
-            const exec = trx<T>(scope, mode, executor)(resolve, reject);
+            const exec = trx<T>(scope, mode, executor)(
+                resolve,
+                _.bundle(reject, (err: any) => this._events.emit('error', err))
+            );
 
             if (this.isOpen) {
                 exec(this._db, this._IDBKeyRange);
@@ -170,14 +165,7 @@ export class IdxdDB<T> {
 ======================================= */
 export interface EventTypes<T> {
     ready: IdxdDB<T>;
-    error: DOMError;
-    change: ChangeInfo<T>;
-}
-
-export interface ChangeInfo<T> {
-    type: 'delete' | 'set';
-    store: keyof T;
-    records: any[];
+    error: any;
 }
 
 export interface IdxdDBOptions {
