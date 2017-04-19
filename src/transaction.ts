@@ -1,20 +1,21 @@
 ////////////////////// Transaction //////////////////////
 export function trx<T>(scope: string | string[], mode: 'r' | 'rw', executor: trx.Executor<T>) {
     return (onResolve: Function, onReject: Function) => (db: IDBDatabase, KeyRange: typeof IDBKeyRange) => {
-        const $trx = db.transaction(scope, trx.parseTrxMode(mode));
+        const $trx = db.transaction(scope, trx.parseMode(mode));
         const $req = new Request<T>($trx, KeyRange);
-        const _reject = function (this: IDBTransaction) {
-            onReject(this.error);
-        };
-
-        $trx.addEventListener('error', _reject);
-        $trx.addEventListener('abort', _reject);
-
         const i = executor($req);
+
+        $trx.addEventListener('error', handleReject);
+        $trx.addEventListener('abort', handleReject);
+
         (function tick(value?: any) {
             const ir = i.next(value);
             ir.done ? onResolve(ir.value) : ir.value(tick);
         }());
+
+        function handleReject(this: IDBTransaction) {
+            onReject(this.error);
+        }
     };
 }
 
@@ -23,7 +24,7 @@ export namespace trx {
         (request: Request<T>): IterableIterator<(next: Function) => (IDBRequest | void)>;
     }
 
-    export const parseTrxMode = (mode: 'r' | 'rw') => {
+    export const parseMode = (mode: 'r' | 'rw') => {
         return mode === 'rw' ? 'readwrite' : 'readonly';
     };
 }
