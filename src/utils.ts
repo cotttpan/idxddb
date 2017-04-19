@@ -19,7 +19,7 @@ export function existy(v: any) {
 }
 
 export function bundle(...fns: Function[]) {
-    return function () {
-        fns.forEach(f => f.apply(null, arguments));
+    return function (...v: any[]) {
+        fns.forEach(f => f.apply(null, v));
     };
 }
