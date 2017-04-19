@@ -77,6 +77,10 @@ export class IdxdDB<T> {
         this._events.on(event, listener);
     }
 
+    once<K extends keyof EventTypes<T>>(event: K, listener: Listener<EventTypes<T>, K>) {
+        this._events.once(event, listener);
+    }
+
     /* ====================================
      * CRUD API
     ======================================= */
