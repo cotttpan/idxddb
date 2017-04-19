@@ -37,6 +37,10 @@ export class IdxdDB<T> {
         return this._IDBKeyRange;
     }
 
+    get storeNames() {
+        return Array.from(this._db.objectStoreNames);
+    }
+
     /* ====================================
      * Database
     ======================================= */
