@@ -74,6 +74,13 @@ export class IdxdDB<T> {
         return this;
     }
 
+    deleteDatabase(done?: Function) {
+        const req = this._IDBFactory.deleteDatabase(this.databaseName);
+        req.onsuccess = function () {
+            done && done(this.result);
+        };
+    }
+
     /* ====================================
      * Event
     ======================================= */
