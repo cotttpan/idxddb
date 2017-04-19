@@ -51,7 +51,7 @@ export class Request<T> {
     }
 
     getBy<K extends keyof T>(store: K, range: Request.RangeFunction): Request.ReturnFunction;
-    getBy<K extends keyof T>(store: K, index: keyof T[K], range: Request.RangeFunction): Request.ReturnFunction;
+    getBy<K extends keyof T>(store: K, index: keyof T[K] | string, range: Request.RangeFunction): Request.ReturnFunction;
     getBy(store: string, a1: any, a2?: any): Request.ReturnFunction {
         return (next: Function) => {
             const [index, range] = typeof a1 === 'string' ? [a1, a2] : [undefined, a1];
@@ -85,14 +85,16 @@ export class Request<T> {
             const req = this.trx.objectStore(store).openCursor(this.KeyRange.only(key));
             req.addEventListener('success', function (this: IDBRequest) {
                 const cursor: IDBCursorWithValue = this.result;
-                cursor && next(cursor.value);
+                if (cursor) {
+                    cursor.delete().onsuccess = next.bind(null, cursor.value);
+                }
             });
             return req;
         };
     }
 
     deleteBy<K extends keyof T>(store: K, range: Request.RangeFunction): Request.ReturnFunction;
-    deleteBy<K extends keyof T>(store: K, index: keyof T[K], range: Request.RangeFunction): Request.ReturnFunction;
+    deleteBy<K extends keyof T>(store: K, index: keyof T[K] | string, range: Request.RangeFunction): Request.ReturnFunction;
     deleteBy(store: string, a1: any, a2?: any): Request.ReturnFunction {
         return (next: Function) => {
             const [index, range] = typeof a1 === 'string' ? [a1, a2] : [undefined, a1];

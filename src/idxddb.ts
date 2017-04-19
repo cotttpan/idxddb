@@ -106,7 +106,7 @@ export class IdxdDB<T> {
     }
 
     getBy<K extends keyof T>(store: K, range: Request.RangeFunction): Promise<T[K][]>;
-    getBy<K extends keyof T>(store: K, index: keyof T[K], range: Request.RangeFunction): Promise<T[K][]>;
+    getBy<K extends keyof T>(store: K, index: keyof T[K] | string, range: Request.RangeFunction): Promise<T[K][]>;
     getBy<K extends keyof T>(store: K, _a1: any, _a2?: any) {
         const params = arguments;
         return this.transaction(store, 'r', function* (req) {
@@ -141,7 +141,7 @@ export class IdxdDB<T> {
     }
 
     deleteBy<K extends keyof T>(store: K, range: Request.RangeFunction): Promise<T[K][]>;
-    deleteBy<K extends keyof T>(store: K, index: keyof T[K], range: Request.RangeFunction): Promise<T[K][]>;
+    deleteBy<K extends keyof T>(store: K, index: keyof T[K] | string, range: Request.RangeFunction): Promise<T[K][]>;
     deleteBy<K extends keyof T>(store: K, _a1: any, _a2?: any) {
         const params = arguments;
         return this.transaction(store, 'rw', function* (req) {
