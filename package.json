@@ -1,8 +1,11 @@
 {
   "name": "idxddb",
-  "description": "idxddb",
+  "description": "idxddb - indexedDB wrapper",
   "version": "0.0.1",
   "author": "cotto",
+  "bugs": {
+    "url": "https://github.com/cotttpan/idxddb/issues"
+  },
   "dependencies": {
     "minitter": "^0.0.5"
   },
@@ -40,7 +43,20 @@
     "webpack-merge": "^4.1.0",
     "webpack-notifier": "^1.5.0"
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "keywords": [
+    "indexddb",
+    "typescript"
+  ],
   "license": "MIT",
+  "main": "dist/index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cotttpan/idxddb.git"
+  },
   "scripts": {
     "build:dist": "tsc",
     "build:webpack": "TEST_ENV=browser webpack",
@@ -51,5 +67,6 @@
     "start": "TEST_ENV=browser webpack-dev-server",
     "test:karma": "TEST_ENV=browser NODE_ENV=test karma start",
     "test:mocha": "TEST_ENV=node NODE_ENV=test mocha"
-  }
+  },
+  "types": "dist/index.d.ts"
 }
