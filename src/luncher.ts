@@ -3,11 +3,7 @@ import * as utils from './utils';
 /* OpenRequestHandler
 -------------------------------*/
 /*
-* NOTE:
-* 安全なmigrationのideaが浮かばないためversion changeよりすべてのstoreを再作成する
-* 課題1: v1 -> v3のようなversion changeの際にどのように安全にmigrationするか
-* 課題2: そのようなversion changeの際のdeleteStore apiのinterface
-* よって, schemaはversionの完全なschemaをversion()で受け取ること
+* NOTE: 安全なmigrationのideaが浮かばないため、すべてのstoreを再作成する
 */
 export const onupgradeneeded = (schema: Schema) => function (this: IDBOpenDBRequest) {
     const db: IDBDatabase = this.result;

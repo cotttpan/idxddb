@@ -95,6 +95,23 @@ export class IdxdDB<T> {
     /* ====================================
      * CRUD API
     ======================================= */
+    /**
+     * Create transaction and execute it.
+     * transaction() can rollback when write error occured or you call request.abort().
+     * Available request api list is see RequestClass in transaction.ts.
+     * request api need 'yield' keyword.
+     *
+     * @template K
+     * @param {(K | K[])} scope
+     * @param {('r' | 'rw')} mode
+     * @param {trx.Executor<T>} executor
+     * @returns {Promise<any>}
+     * @example
+     * db.tranaction(['store'], 'rw', function*(req) {
+     *   const record1 = yield req.set('store', { id: 1 })
+     *   return record1;
+     * })
+     */
     transaction<K extends keyof T>(scope: K | K[], mode: 'r' | 'rw', executor: trx.Executor<T>) {
         return new Promise<any>((resolve, reject) => {
             const exec = trx<T>(scope, mode, executor)(
@@ -110,12 +127,32 @@ export class IdxdDB<T> {
         });
     }
 
+    /**
+     * Get record by primary key
+     *
+     * @template K
+     * @param {K} store
+     * @param {*} key
+     * @returns {(Promise<T[K] | undefined>)}
+     * @example
+     * db.get('store', 1)
+     */
     get<K extends keyof T>(store: K, key: any): Promise<T[K] | undefined> {
         return this.transaction(store, 'r', function* (req) {
             return yield req.get(store, key);
         });
     }
 
+    /**
+     * Get records by key range or index and key range.
+     *
+     * @template K
+     * @param {K} store
+     * @param {Request.RangeFunction} range
+     * @returns {Promise<T[K][]>}
+     * @example
+     * db.getBy('store', 'index', range => range.bound(1, 5))
+     */
     getBy<K extends keyof T>(store: K, range: Request.RangeFunction): Promise<T[K][]>;
     getBy<K extends keyof T>(store: K, index: keyof T[K] | string, range: Request.RangeFunction): Promise<T[K][]>;
     getBy<K extends keyof T>(store: K, _a1: any, _a2?: any) {
@@ -125,18 +162,48 @@ export class IdxdDB<T> {
         });
     }
 
+    /**
+     * Get all record.
+     *
+     * @template K
+     * @param {K} store
+     * @returns {Promise<T[K][]>}
+     * @example
+     * db.getAll('store')
+     */
     getAll<K extends keyof T>(store: K): Promise<T[K][]> {
         return this.transaction(store, 'r', function* (req) {
             return yield req.getAll(store);
         });
     }
 
+    /**
+     * Set record.
+     *
+     * @template K
+     * @param {K} store
+     * @param {T[K]} record
+     * @param {*} [key]
+     * @returns {Promise<T[K]>}
+     * @example
+     * db.set('store', { id: 1 })
+     */
     set<K extends keyof T>(store: K, record: T[K], key?: any): Promise<T[K]> {
         return this.transaction(store, 'rw', function* (req) {
             return yield req.set(store, record, key);
         });
     }
 
+    /**
+     * Set multi records.
+     *
+     * @template K
+     * @param {K} store
+     * @param {T[K][]} records
+     * @returns {Promise<T[K][]>}
+     * @example
+     * db.bulkSet('store', [{ id: 1 }, { id: 2 }])
+     */
     bulkSet<K extends keyof T>(store: K, records: T[K][]): Promise<T[K][]> {
         return this.transaction(store, 'rw', function* (req) {
             const res: T[K][] = [];
@@ -145,12 +212,32 @@ export class IdxdDB<T> {
         });
     }
 
+    /**
+     * Delete record by primary key.
+     *
+     * @template K
+     * @param {K} store
+     * @param {*} key
+     * @returns {(Promise<T[K] | undefined>)}
+     * @example
+     * db.delete('store', 1)
+     */
     delete<K extends keyof T>(store: K, key: any): Promise<T[K] | undefined> {
         return this.transaction(store, 'rw', function* (req) {
             return yield req.delete(store, key);
         });
     }
 
+    /**
+     * Delete records by key range or index and key range
+     *
+     * @template K
+     * @param {K} store
+     * @param {Request.RangeFunction} range
+     * @returns {Promise<T[K][]>}
+     * @example
+     * db.deleteBy('store', 'index', range => range.bound(1, 100))
+     */
     deleteBy<K extends keyof T>(store: K, range: Request.RangeFunction): Promise<T[K][]>;
     deleteBy<K extends keyof T>(store: K, index: keyof T[K] | string, range: Request.RangeFunction): Promise<T[K][]>;
     deleteBy<K extends keyof T>(store: K, _a1: any, _a2?: any) {
@@ -160,6 +247,16 @@ export class IdxdDB<T> {
         });
     }
 
+    /**
+     * Delete mutli records by primary keys.
+     *
+     * @template K
+     * @param {K} store
+     * @param {any[]} keys
+     * @returns {Promise<T[K][]>}
+     * @example
+     * db.bulkDelete('store', [1, 2, 3])
+     */
     bulkDelete<K extends keyof T>(store: K, keys: any[]): Promise<T[K][]> {
         return this.transaction(store, 'rw', function* (req) {
             const res: T[K][] = [];
@@ -168,6 +265,15 @@ export class IdxdDB<T> {
         });
     }
 
+    /**
+     * Delete All record.
+     *
+     * @template K
+     * @param {K} store
+     * @returns {Promise<T[K][]>}
+     * @example
+     * db.clear('store')
+     */
     clear<K extends keyof T>(store: K): Promise<T[K][]> {
         return this.transaction(store, 'rw', function* (req) {
             return yield req.clear(store);
