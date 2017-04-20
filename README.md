@@ -1,6 +1,8 @@
+[WIP]
+
 # IdxdDB
 
-IndexdDB Wrapper.
+IndexdDB Wrapper
 
 ## Install
 
@@ -42,7 +44,7 @@ db.set('books', { id: 1, info: { title: 'bookName' } })
 // get record
 db.get('books', 1)
 
-// find record by index
+// find record by key range and index
 db.getBy('books', 'title', range => range.only('bookName'))
 ```
 
