@@ -84,6 +84,8 @@ describe('crud', () => {
         });
     });
 
+    after(() => $db.deleteDatabase());
+
     describe('#transaction', () => {
         it('creating transaction and execute request', async () => {
             const [sa, sb] = await $db.transaction(['storeA', 'storeB'], 'rw', function* (req) {
