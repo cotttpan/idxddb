@@ -10,6 +10,7 @@
     "minitter": "^0.0.5"
   },
   "devDependencies": {
+    "@cotto/tslint-config": "^0.0.2",
     "@types/mocha": "^2.2.41",
     "@types/node": "^7.0.13",
     "@types/power-assert": "^1.4.29",

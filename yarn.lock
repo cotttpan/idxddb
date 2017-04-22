@@ -2,6 +2,10 @@
 # yarn lockfile v1
 
 
+"@cotto/tslint-config@^0.0.2":
+  version "0.0.2"
+  resolved "https://registry.yarnpkg.com/@cotto/tslint-config/-/tslint-config-0.0.2.tgz#83c5f4af16b5446de80d39def269b67137ca97d0"
+
 "@types/empower@*":
   version "1.2.30"
   resolved "https://registry.yarnpkg.com/@types/empower/-/empower-1.2.30.tgz#c7cfc14b3a61e54c74c674c1fbc91ba2df0d1392"
