@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import * as Utils from './../src/utils';
+import * as Utils from './../../src/utils';
 import * as sinon from 'sinon';
 
 describe('has', () => {

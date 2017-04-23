@@ -1,7 +1,21 @@
 import * as utils from './utils';
 
-/* OpenRequestHandler
--------------------------------*/
+export type Schema = StoreDescription[];
+
+export interface StoreDescription {
+    name: string;
+    autoIncrement?: boolean;
+    keyPath?: IDBKeyPath;
+    indexes?: IndexDescription[];
+}
+
+export interface IndexDescription {
+    keyPath: string | string[];
+    as?: string;
+    multiEntry?: boolean;
+    unique?: boolean;
+}
+
 /*
 * NOTE: 安全なmigrationのideaが浮かばないため、すべてのstoreを再作成する
 */
@@ -38,21 +52,3 @@ export const indexName = (desc: IndexDescription) => {
 export const parseIndexName = (val: string | string[]) => {
     return Array.isArray(val) ? val.join('.') : val;
 };
-
-/* Tyeps
------------------------------- */
-export type Schema = StoreDescription[];
-
-export interface StoreDescription {
-    name: string;
-    autoIncrement?: boolean;
-    keyPath?: IDBKeyPath;
-    indexes?: IndexDescription[];
-}
-
-export interface IndexDescription {
-    keyPath: string | string[];
-    as?: string;
-    multiEntry?: boolean;
-    unique?: boolean;
-}

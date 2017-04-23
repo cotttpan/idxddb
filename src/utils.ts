@@ -18,8 +18,12 @@ export function existy(v: any) {
     return !(v === null || v === undefined);
 }
 
-export function bundle(...fns: Function[]) {
-    return function (...v: any[]) {
+export function bundle<T>(...fns: ((val: T) => any)[]) {
+    return function (...v: T[]) {
         fns.forEach(f => f.apply(null, v));
     };
+}
+
+export function identity<T>(value: T) {
+    return value;
 }

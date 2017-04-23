@@ -1,31 +1,61 @@
 import Minitter, { Listener } from 'minitter';
 import * as Luncher from './luncher';
-import { trx, Request } from './transaction';
-import * as _ from './utils';
+import { Operation, RangeFunction } from './operation';
+import * as u from './utils';
 
+export { Schema, IndexDescription, StoreDescription } from './luncher';
+
+export interface IdxdDBOptions {
+    IDBFactory?: IDBFactory;
+    IDBKeyRange?: typeof IDBKeyRange;
+}
+
+export interface EventTypes<T> {
+    ready: IdxdDB<T>;
+    error: any;
+}
+
+export namespace Trx {
+    export type Mode = 'r' | 'rw';
+    export const parseMode = (mode: Mode) => {
+        return mode === 'rw' ? 'readwrite' : 'readonly';
+    };
+    export interface Selector<T> {
+        <K extends keyof T>(store: K): Operation<T, K>;
+    }
+    export interface AbortFunciton {
+        (): () => void;
+    }
+    export interface Executor<T> {
+        (selector: Selector<T> & { abort: AbortFunciton }): IterableIterator<(next: Function) => (IDBRequest | void)>;
+    }
+}
+
+/**
+ * Public Api
+ *
+ * @class IdxdDB
+ * @template T - { [Store]: RecordTypes }
+ */
 export class IdxdDB<T> {
-    readonly databaseName: string;
+    readonly dbName: string;
     protected _db: IDBDatabase;
-    protected _IDBFactory: IDBFactory;
-    protected _IDBKeyRange: typeof IDBKeyRange;
+    readonly _Factory: IDBFactory;
+    readonly KeyRange: typeof IDBKeyRange;
     protected _events = new Minitter<EventTypes<T>>();
-    protected _versions: Map<number, Luncher.Schema> = new Map();
+    protected _versionMap: Map<number, Luncher.Schema> = new Map();
     protected _isOpen: boolean = false;
 
     constructor(name: string, options: IdxdDBOptions = {}) {
-        this.databaseName = name;
-        this._IDBFactory = options.IDBFactory || indexedDB;
-        this._IDBKeyRange = options.IDBKeyRange || IDBKeyRange;
+        this.dbName = name;
+        this._Factory = options.IDBFactory || indexedDB;
+        this.KeyRange = options.IDBKeyRange || IDBKeyRange;
     }
 
     /* ====================================
      * Getter Property
     ======================================= */
-    get isOpen() {
-        return this._isOpen;
-    }
-
-    get backendDB() {
+    get db() {
         return this._db;
     }
 
@@ -33,30 +63,42 @@ export class IdxdDB<T> {
         return this._db.version;
     }
 
-    get KeyRange() {
-        return this._IDBKeyRange;
+    get storeNames() {
+        return Array.from<keyof T>(this._db.objectStoreNames as any);
     }
 
-    get storeNames() {
-        return Array.from(this._db.objectStoreNames);
+    get isOpen() {
+        return this._isOpen;
     }
+
+    /* ====================================
+     * Events
+    ======================================= */
+    on<K extends keyof EventTypes<T>>(event: K, listener: Listener<EventTypes<T>, K>) {
+        this._events.on(event, listener);
+    }
+
+    once<K extends keyof EventTypes<T>>(event: K, listener: Listener<EventTypes<T>, K>) {
+        this._events.once(event, listener);
+    }
+
 
     /* ====================================
      * Database
     ======================================= */
     version(no: number, schema: Luncher.Schema) {
-        this._versions.set(no, schema);
+        this._versionMap.set(no, schema);
         return this;
     }
 
     open() {
         if (this.isOpen) return this;
 
-        const [version, schema] = _.last(this._versions);
-        const req = this._IDBFactory.open(this.databaseName, version);
+        const [version, schema] = u.last(this._versionMap);
+        const req = this._Factory.open(this.dbName, version);
         const onerror = (err: DOMError) => this._events.emit('error', err);
-        const onsuccess = (idb: IDBDatabase) => {
-            this._db = idb;
+        const onsuccess = (db: IDBDatabase) => {
+            this._db = db;
             this._isOpen = true;
             this._events.emit('ready', this);
         };
@@ -74,224 +116,259 @@ export class IdxdDB<T> {
         return this;
     }
 
-    deleteDatabase(done?: Function) {
-        const req = this._IDBFactory.deleteDatabase(this.databaseName);
-        req.onsuccess = function () {
-            done && done(this.result);
-        };
+    delete(onblocked?: () => any) {
+        return new Promise<void>((resolve, reject) => {
+            this.isOpen && this.close();
+            const req = this._Factory.deleteDatabase(this.dbName);
+
+            req.onblocked = function () {
+                onblocked && onblocked();
+            };
+            req.onsuccess = function () {
+                resolve();
+            };
+            req.onerror = function () {
+                reject(this.error);
+            };
+        });
     }
 
     /* ====================================
-     * Event
-    ======================================= */
-    on<K extends keyof EventTypes<T>>(event: K, listener: Listener<EventTypes<T>, K>) {
-        this._events.on(event, listener);
-    }
-
-    once<K extends keyof EventTypes<T>>(event: K, listener: Listener<EventTypes<T>, K>) {
-        this._events.once(event, listener);
-    }
-
-    /* ====================================
-     * CRUD API
+     * Transaction
     ======================================= */
     /**
-     * Create transaction and execute it.
-     * transaction() can rollback when write error occured or you call request.abort().
-     * Available request api list is see RequestClass in transaction.ts.
-     * request api need 'yield' keyword.
+     * Make task implemntation awaitable until database is opening.
+     *
+     * @param {(resolve: Function, reject: Function) => (self: IdxdDB<T>) => any} task
+     * @returns {Promise<any>}
+     *
+     */
+    awaitable(task: (resolve: Function, reject: Function) => (self: IdxdDB<T>) => any) {
+        return new Promise<any>((resolve, reject) => {
+            const _task = task(resolve, u.bundle(reject, (err: any) => this._events.emit('error', err)));
+            this.isOpen ? _task(this) : this._events.once('ready', _task);
+        });
+    }
+
+    /**
+     * Create transaction explicitly and execute it.
+     * Transaction can rollback when you call abort().
      *
      * @template K
      * @param {(K | K[])} scope
-     * @param {('r' | 'rw')} mode
-     * @param {trx.Executor<T>} executor
+     * @param {Trx.Mode} mode
+     * @param {Trx.Executor<T>} executor
      * @returns {Promise<any>}
      * @example
-     * db.tranaction(['store'], 'rw', function*(req) {
-     *   const record1 = yield req.set('store', { id: 1 })
-     *   return record1;
+     * db.transaction('books', 'r', function*($) {
+     *    yield $('books').set({ id: 1, title: 'MyBook', page: 10 })
+     *    return yield $('books').getAll()
      * })
+     *
      */
-    transaction<K extends keyof T>(scope: K | K[], mode: 'r' | 'rw', executor: trx.Executor<T>) {
-        return new Promise<any>((resolve, reject) => {
-            const exec = trx<T>(scope, mode, executor)(
-                resolve,
-                _.bundle(reject, (err: any) => this._events.emit('error', err))
-            );
+    transaction<K extends keyof T>(scope: K | K[], mode: Trx.Mode, executor: Trx.Executor<T>) {
+        const exec = (resolve: Function, reject: Function) => (self: IdxdDB<T>) => {
 
-            if (this.isOpen) {
-                exec(this._db, this._IDBKeyRange);
-            } else {
-                this._events.once('ready', (self) => exec(self.backendDB, self.KeyRange));
+            const trx = self.db.transaction(scope, Trx.parseMode(mode));
+            const select = (store: K) => new Operation<T, K>(self, trx.objectStore(store));
+            const abort = () => () => trx.abort();
+            const i = executor(Object.assign(select, { abort }));
+
+            trx.addEventListener('error', handleReject);
+            trx.addEventListener('abort', handleReject);
+
+            (function tick(value?: any) {
+                const ir = i.next(value);
+                ir.done ? trx.addEventListener('complete', resolve.bind(null, ir.value)) : ir.value(tick);
+            }());
+
+            function handleReject(this: IDBTransaction) {
+                reject(this.error);
             }
+        };
+
+        return this.awaitable(exec);
+    }
+
+    /**
+     * Operate single store (e.g. get / set / delete)
+     *
+     * @template K
+     * @param {K} name
+     * @returns SimpleCrudApi
+     * @example
+     * db.store('books').get(1)
+     *
+     */
+    store<K extends keyof T>(name: K) {
+        return new SimpleCrudApi<T, K>(this, name);
+    }
+}
+
+/**
+ * Simple CurdApi for single store.
+ * Each methods implements one transaction and one operation on single store.
+ */
+export class SimpleCrudApi<T, K extends keyof T> {
+    private idxd: IdxdDB<T>;
+    private store: K;
+
+    constructor(idxd: IdxdDB<T>, store: K) {
+        this.idxd = idxd;
+        this.store = store;
+    }
+
+    /**
+     * Get record count.
+     *
+     * @returns {Promise<number>}
+     * @example
+     * db.store('books').count()
+     *
+     */
+    count(): Promise<number> {
+        const self = this;
+        return this.idxd.transaction(self.store, 'r', function* ($) {
+            return yield $(self.store).count();
         });
     }
 
     /**
      * Get record by primary key
      *
-     * @template K
-     * @param {K} store
-     * @param {*} key
-     * @returns {(Promise<T[K] | undefined>)}
+     * @param {any} key
+     * @returns {(Promise<T[K] | undefined>)} record
      * @example
-     * db.get('store', 1)
+     * db.store('books').get(1)
+     *
      */
-    get<K extends keyof T>(store: K, key: any): Promise<T[K] | undefined> {
-        return this.transaction(store, 'r', function* (req) {
-            return yield req.get(store, key);
+    get(key: any): Promise<T[K] | undefined> {
+        const self = this;
+        return this.idxd.transaction(self.store, 'r', function* ($) {
+            return yield $(self.store).get(key);
         });
     }
 
     /**
-     * Get records by key range or index and key range.
+     * Get all record in the store.
      *
-     * @template K
-     * @param {K} store
-     * @param {Request.RangeFunction} range
-     * @returns {Promise<T[K][]>}
+     * @returns {Promise<T[K][]>} records
      * @example
-     * db.getBy('store', 'index', range => range.bound(1, 5))
+     * db.store('books').getAll()
+     *
      */
-    getBy<K extends keyof T>(store: K, range: Request.RangeFunction): Promise<T[K][]>;
-    getBy<K extends keyof T>(store: K, index: keyof T[K] | string, range: Request.RangeFunction): Promise<T[K][]>;
-    getBy<K extends keyof T>(store: K, _a1: any, _a2?: any) {
-        const params = arguments;
-        return this.transaction(store, 'r', function* (req) {
-            return yield req.getBy.apply(req, params);
+    getAll(): Promise<T[K][]> {
+        const self = this;
+        return this.idxd.transaction(self.store, 'r', function* ($) {
+            return yield $(self.store).getAll();
         });
     }
 
     /**
-     * Get all record.
+     * Find record by key range of primary key or by index + key range.
      *
-     * @template K
-     * @param {K} store
-     * @returns {Promise<T[K][]>}
+     * @param {(RangeFunction | string)} range or index
+     * @param {RangeFunction=} range of index
+     * @return {Promise<T[K][]>} records
      * @example
-     * db.getAll('store')
+     * // key range of primary key
+     * db.store('books').find(range => range.bound(1, 100))
+     * @example
+     * // key range of index
+     * db.store('books').find('page', range => range.bound(200, 500))
      */
-    getAll<K extends keyof T>(store: K): Promise<T[K][]> {
-        return this.transaction(store, 'r', function* (req) {
-            return yield req.getAll(store);
+    find(range: RangeFunction): Promise<T[K][]>;
+    find(index: keyof T[K] | string, range?: RangeFunction): Promise<T[K][]>;
+    find(a1: any, a2?: any): Promise<T[K][]> {
+        const self = this;
+        const [index, range] = (typeof a1 === 'string') ? [a1, a2] : [undefined, a1];
+        return this.idxd.transaction(self.store, 'r', function* ($) {
+            const s = $(self.store);
+            return yield index ? s.find(index, range).toArray() : s.find(range).toArray();
         });
     }
 
     /**
      * Set record.
+     * This method execute IDBDatabase.put().
      *
-     * @template K
-     * @param {K} store
      * @param {T[K]} record
      * @param {*} [key]
-     * @returns {Promise<T[K]>}
+     * @returns {Promise<T[K]>} seved record
      * @example
-     * db.set('store', { id: 1 })
+     * db.store('books').set({ title: 'MyBook', page: 300 })
+     *
      */
-    set<K extends keyof T>(store: K, record: T[K], key?: any): Promise<T[K]> {
-        return this.transaction(store, 'rw', function* (req) {
-            return yield req.set(store, record, key);
+    set(record: T[K], key?: any): Promise<T[K]> {
+        const self = this;
+        return this.idxd.transaction(self.store, 'rw', function* ($) {
+            return yield $(self.store).set(record, key);
         });
     }
 
     /**
      * Set multi records.
      *
-     * @template K
-     * @param {K} store
      * @param {T[K][]} records
-     * @returns {Promise<T[K][]>}
+     * @returns {Promise<T[K][]>} saved records
      * @example
-     * db.bulkSet('store', [{ id: 1 }, { id: 2 }])
+     * db.store('books').bulkSet([{ id: 1, title: 'MyBook1' }, { id: 2, title: 'MyBook2' }])
      */
-    bulkSet<K extends keyof T>(store: K, records: T[K][]): Promise<T[K][]> {
-        return this.transaction(store, 'rw', function* (req) {
-            const res: T[K][] = [];
-            for (const r of records) res.push(yield req.set(store, r));
-            return res;
+    bulkSet(records: T[K][]): Promise<T[K][]> {
+        const self = this;
+        return this.idxd.transaction(self.store, 'rw', function* ($) {
+            const _records: T[K][] = [];
+            for (const r of records) _records.push(yield $(self.store).set(r));
+            return _records;
         });
     }
 
     /**
      * Delete record by primary key.
      *
-     * @template K
-     * @param {K} store
      * @param {*} key
-     * @returns {(Promise<T[K] | undefined>)}
+     * @returns {(Promise<T[K] | undefined>)} deleted record
      * @example
-     * db.delete('store', 1)
+     * db.store('books').delete(1)
+     *
      */
-    delete<K extends keyof T>(store: K, key: any): Promise<T[K] | undefined> {
-        return this.transaction(store, 'rw', function* (req) {
-            return yield req.delete(store, key);
+    delete(key: any): Promise<T[K] | undefined> {
+        const self = this;
+        return this.idxd.transaction(self.store, 'rw', function* ($) {
+            return yield $(self.store).delete(key);
         });
     }
 
     /**
-     * Delete records by key range or index and key range
+     * Delete multi records by primary keys.
      *
-     * @template K
-     * @param {K} store
-     * @param {Request.RangeFunction} range
-     * @returns {Promise<T[K][]>}
-     * @example
-     * db.deleteBy('store', 'index', range => range.bound(1, 100))
-     */
-    deleteBy<K extends keyof T>(store: K, range: Request.RangeFunction): Promise<T[K][]>;
-    deleteBy<K extends keyof T>(store: K, index: keyof T[K] | string, range: Request.RangeFunction): Promise<T[K][]>;
-    deleteBy<K extends keyof T>(store: K, _a1: any, _a2?: any) {
-        const params = arguments;
-        return this.transaction(store, 'rw', function* (req) {
-            return yield req.deleteBy.apply(req, params);
-        });
-    }
-
-    /**
-     * Delete mutli records by primary keys.
-     *
-     * @template K
-     * @param {K} store
      * @param {any[]} keys
-     * @returns {Promise<T[K][]>}
+     * @returns {Promise<T[K][]>} deleted records
      * @example
-     * db.bulkDelete('store', [1, 2, 3])
+     * db.store('books').bulkDelete([1, 2, 3])
+     *
      */
-    bulkDelete<K extends keyof T>(store: K, keys: any[]): Promise<T[K][]> {
-        return this.transaction(store, 'rw', function* (req) {
-            const res: T[K][] = [];
-            for (const k of keys) res.push(yield req.delete(store, k));
-            return res;
+    bulkDelete(keys: any[]): Promise<T[K][]> {
+        const self = this;
+        return this.idxd.transaction(self.store, 'rw', function* ($) {
+            const _records: T[K][] = [];
+            for (const k of keys) _records.push(yield $(self.store).delete(k));
+            return _records;
         });
     }
 
     /**
-     * Delete All record.
+     * Delete All records in the store.
      *
-     * @template K
-     * @param {K} store
-     * @returns {Promise<T[K][]>}
+     * @returns {Promise<T[K][]>} deleted records
      * @example
-     * db.clear('store')
+     * db.store('books').clear()
+     *
      */
-    clear<K extends keyof T>(store: K): Promise<T[K][]> {
-        return this.transaction(store, 'rw', function* (req) {
-            return yield req.clear(store);
+    clear(): Promise<T[K][]> {
+        const self = this;
+        return this.idxd.transaction(self.store, 'rw', function* ($) {
+            return yield $(self.store).clear();
         });
     }
 }
-
-/* ====================================
- * Types
-======================================= */
-export interface EventTypes<T> {
-    ready: IdxdDB<T>;
-    error: any;
-}
-
-export interface IdxdDBOptions {
-    IDBFactory?: IDBFactory;
-    IDBKeyRange?: typeof IDBKeyRange;
-}
-
-export { Schema, StoreDescription, IndexDescription } from './luncher';
