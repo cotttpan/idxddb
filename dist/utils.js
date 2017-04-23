@@ -26,4 +26,8 @@ function bundle(...fns) {
     };
 }
 exports.bundle = bundle;
+function identity(value) {
+    return value;
+}
+exports.identity = identity;
 //# sourceMappingURL=utils.js.map

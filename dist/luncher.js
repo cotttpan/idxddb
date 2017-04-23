@@ -1,8 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const utils = require("./utils");
-/* OpenRequestHandler
--------------------------------*/
 /*
 * NOTE: 安全なmigrationのideaが浮かばないため、すべてのstoreを再作成する
 */
