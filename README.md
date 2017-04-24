@@ -18,19 +18,19 @@ https://www.npmjs.com/package/idxddb
 import IdxdDB from './idxddb';
 
 const schema = [
-	{
-		name: 'books',
-		keyPath: 'id',
-		autoIncrement: true;
-		indexes: [
-			{ keyPath: 'info.title', as 'title' }
-		]
-	}
+    {
+        name: 'books',
+        keyPath: 'id',
+        autoIncrement: true;
+        indexes: [
+            { keyPath: 'info.title', as 'title' }
+        ]
+    }
 ]
 
 const db = new IdxdDB('DatabaseName')
-	.version(1, schema)
-	.open()
+    .version(1, schema)
+    .open()
 ```
 
 #### Schema Interface
@@ -54,39 +54,39 @@ interface IndexDescription {
 
 ////////// Example //////////////
 const schama = [
-	/*
-	interface UserModel {
-		id?: number;
-		name: string;
-		age: number;
-	}
-	*/
-	{
-		name: 'users',
-		keyPath: 'id',
-		autoIncrement: true,
-		indexes: [
-			{ keyPath: 'name'},
-			{ keyPath: 'age' }
-		]
-	},
-	/*
-	interface BookModel {
-		id?: number;
-		info: {
-			title: string
-		}
-	}
-	*/
-	{
-		name: 'books',
-		keyPath: 'id',
-		autoIncrement: true;
-		indexes: [
-			// index in nested property
-			{ keyPath: 'info.title', as 'title' }
-		]
-	}
+    /*
+    interface UserModel {
+        id?: number;
+        name: string;
+        age: number;
+    }
+    */
+    {
+        name: 'users',
+        keyPath: 'id',
+        autoIncrement: true,
+        indexes: [
+            { keyPath: 'name'},
+            { keyPath: 'age' }
+        ]
+    },
+    /*
+    interface BookModel {
+        id?: number;
+        info: {
+            title: string
+        }
+    }
+    */
+    {
+        name: 'books',
+        keyPath: 'id',
+        autoIncrement: true;
+        indexes: [
+            // index in nested property
+            { keyPath: 'info.title', as 'title' }
+        ]
+    }
 ]
 ```
 
@@ -117,19 +117,19 @@ It can also more efficiently data retrieval than simple operation api.
 
 ```js
 db.transaction(['books', 'users'], 'rw', funciton* ($ /*operator*/) {
-	// WARN: operator must need to call with "yeild" keyword
-	const book /* saved record */ = yield $('books').set({ id: 1, info: { title: 'MyBook'} })
-	const user /* saved record */ = yield $('users').set({ id: 1, name: 'taro', age: 20 })
-	const books = yield $('books').getAll()
-	const users = yield $('users').getAll()
+    // WARN: operator must need to call with "yeild" keyword
+    const book /* saved record */ = yield $('books').set({ id: 1, info: { title: 'MyBook'} })
+    const user /* saved record */ = yield $('users').set({ id: 1, name: 'taro', age: 20 })
+    const books = yield $('books').getAll()
+    const users = yield $('users').getAll()
 
-	return [books, users]
+    return [books, users]
 })
 
 db.transaction(['users'], 'r', funciton* ($) {
-	return yield $('users').find('age', range => range.bound(20, 50))
-		.filter((user) => (/^a/i).test(user.name))
-		.toArray()
+    return yield $('users').find('age', range => range.bound(20, 50))
+        .filter((user) => (/^a/i).test(user.name))
+        .toArray()
 })
 ```
 
@@ -436,8 +436,8 @@ npm i -D fake-indexeddb
 
 ```js
 const option = {
-	IDBFactory: require('fake-indexeddb'),
-	IDBKeyRange: require('fake-indexeddb/lib/FDBKeyRange')
+    IDBFactory: require('fake-indexeddb'),
+    IDBKeyRange: require('fake-indexeddb/lib/FDBKeyRange')
 }
 const db = new IdxdDB('name', option)
 ```
@@ -447,19 +447,19 @@ const db = new IdxdDB('name', option)
 
 ```js
 interface BookModel {
-	id?: number;
-	info: {
-		title: string;
-	}
+    id?: number;
+    info: {
+        title: string;
+    }
 }
 
 interface Stores {
-	books: BookModel;
+    books: BookModel;
 }
 
 const db = new IdxdDB<Stores>('DatabaseName')
-	.version(1, schema)
-	.open()
+    .version(1, schema)
+    .open()
 ```
 
 ### More API detail and example
