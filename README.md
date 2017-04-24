@@ -1,5 +1,3 @@
-[WIP]
-
 # IdxdDB
 
 IndexdDB Wrapper
@@ -14,43 +12,28 @@ https://www.npmjs.com/package/idxddb
 
 ## How to Use
 
-### Createing Store and open Database
+### Create Store by schema and open Database
 
 ```js
-import IdxdDB from 'idxddb';
+import IdxdDB from './idxddb';
 
 const schema = [
-    {
-        name: 'books',
-        keyPath: 'id',
-        autoIncrement: true;
-        indexes: [
-            { keyPath: 'info.title', as 'title' }
-        ]
-    }
+	{
+		name: 'books',
+		keyPath: 'id',
+		autoIncrement: true;
+		indexes: [
+			{ keyPath: 'info.title', as 'title' }
+		]
+	}
 ]
 
-const db = new IdxdDB('DataBaseName')
-    .version(1, schema)
-    .open()
+const db = new IdxdDB('DatabaseName')
+	.version(1, schema)
+	.open()
 ```
 
-### CRUD operation example
-
-```js
-// set record
-db.set('books', { id: 1, info: { title: 'bookName' } })
-
-// get record
-db.get('books', 1)
-
-// find record by key range and index
-db.getBy('books', 'title', range => range.only('bookName'))
-```
-
-## API
-
-### Schema Interface
+#### Schema Interface
 
 ```js
 type Schema = StoreDescription[];
@@ -71,158 +54,381 @@ interface IndexDescription {
 
 ////////// Example //////////////
 const schama = [
-    /*
-    interface UserModel {
-        id?: number;
-        name: string;
-        age: number;
-    }
-    */
-    {
-        name: 'users',
-        keyPath: 'id',
-        autoIncrement: true,
-        indexes: [
-            { keyPath: 'name'},
-            { keyPath: 'age' }
-        ]
-    },
-    /*
-    interface BookModel {
-        id?: number;
-        info: {
-            title: string
-        }
-    }
-    */
-    {
-        name: 'books',
-        keyPath: 'id',
-        autoIncrement: true;
-        indexes: [
-            // index in nested property
-            { keyPath: 'info.title', as 'title' }
-        ]
-    }
+	/*
+	interface UserModel {
+		id?: number;
+		name: string;
+		age: number;
+	}
+	*/
+	{
+		name: 'users',
+		keyPath: 'id',
+		autoIncrement: true,
+		indexes: [
+			{ keyPath: 'name'},
+			{ keyPath: 'age' }
+		]
+	},
+	/*
+	interface BookModel {
+		id?: number;
+		info: {
+			title: string
+		}
+	}
+	*/
+	{
+		name: 'books',
+		keyPath: 'id',
+		autoIncrement: true;
+		indexes: [
+			// index in nested property
+			{ keyPath: 'info.title', as 'title' }
+		]
+	}
 ]
 ```
 
-### CRUD API
+### CRUD operation example
+
+Operation API has two way that simple store operation API and Transaction API that create it explicitly.
+
+#### Simple Operation
+
+Simple Operation execute one transaction and one operation to one store.
+
+```js
+// set record
+db.store('books').set({id: 1, info: { title: 'MyBook' }})
+
+// get record by primary key
+db.store('books').get(1)
+
+// find by key range of primary key
+db.store('books').find(range => range.bound(1, 100))
+```
+
+#### Create Transaction explicitly
+
+Transaction API can execute one transaction and multi operation to multi store.
+It can `rollback` when transaction has error or you call `abort()`.
+It can also more efficiently data retrieval than simple operation api.
+
+```js
+db.transaction(['books', 'users'], 'rw', funciton* ($ /*operator*/) {
+	// WARN: operator must need to call with "yeild" keyword
+	const book /* saved record */ = yield $('books').set({ id: 1, info: { title: 'MyBook'} })
+	const user /* saved record */ = yield $('users').set({ id: 1, name: 'taro', age: 20 })
+	const books = yield $('books').getAll()
+	const users = yield $('users').getAll()
+
+	return [books, users]
+})
+
+db.transaction(['users'], 'r', funciton* ($) {
+	return yield $('users').find('age', range => range.bound(20, 50))
+		.filter((user) => (/^a/i).test(user.name))
+		.toArray()
+})
+```
+
+## API
+
+### Simple CRUD API
 
 ```js
 /**
- * Create transaction and execute it.
- * transaction() can rollback when write error occured or you call request.abort().
- * Available request api list is see RequestClass in transaction.ts.
- * request api need 'yield' keyword.
+ * Get record count.
  *
- * @returns {Promise<any>}
  * @example
- * db.tranaction(['store'], 'rw', function*(req) {
- *   const record1 = yield req.set('store', { id: 1 })
- *   return record1;
- * })
+ * db.store('books').count()
+ *
  */
-transaction<K extends keyof T>(scope: K | K[], mode: 'r' | 'rw', executor: trx.Executor<T>): Promise<any>;
+count(): Promise<number>;
 
 /**
  * Get record by primary key
  *
- * @returns {(Promise<T[K] | undefined>)}
  * @example
- * db.get('store', 1)
+ * db.store('books').get(1)
+ *
  */
-get<K extends keyof T>(store: K, key: any): Promise<T[K] | undefined>;
+get(key: any): Promise<T[K] | undefined>;
 
 /**
- * Get records by key range or index and key range.
+ * Get all record in the store.
  *
- * @returns {Promise<T[K][]>}
  * @example
- * db.getBy('store', 'index', range => range.bound(1, 5))
+ * db.store('books').getAll()
+ *
  */
-getBy<K extends keyof T>(store: K, range: Request.RangeFunction): Promise<T[K][]>;
-getBy<K extends keyof T>(store: K, index: keyof T[K] | string, range: Request.RangeFunction): Promise<T[K][]>;
+getAll(): Promise<T[K][]>;
 
 /**
- * Get all record.
+ * Find record by key range of primary key or by index + key range.
  *
- * @returns {Promise<T[K][]>}
  * @example
- * db.getAll('store')
+ * // key range of primary key
+ * db.store('books').find(range => range.bound(1, 100))
+ *
+ * @example
+ * // key range of index
+ * db.store('books').find('page', range => range.bound(200, 500))
  */
-getAll<K extends keyof T>(store: K): Promise<T[K][]>;
+find(range: RangeFunction): Promise<T[K][]>;
+find(index: keyof T[K] | string, range?: RangeFunction): Promise<T[K][]>;
 
 /**
  * Set record.
+ * This method execute IDBDatabase.put().
  *
- * @returns {Promise<T[K]>}
  * @example
- * db.set('store', { id: 1 })
+ * db.store('books').set({ title: 'MyBook', page: 300 })
+ *
  */
-set<K extends keyof T>(store: K, record: T[K], key?: any): Promise<T[K]>;
+set(record: T[K], key?: any): Promise<T[K]>;
 
 /**
  * Set multi records.
  *
- * @returns {Promise<T[K][]>}
  * @example
- * db.bulkSet('store', [{ id: 1 }, { id: 2 }])
+ * db.store('books').bulkSet([{ id: 1, title: 'MyBook1' }, { id: 2, title: 'MyBook2' }])
  */
-bulkSet<K extends keyof T>(store: K, records: T[K][]): Promise<T[K][]>;
+bulkSet(records: T[K][]): Promise<T[K][]>;
 
 /**
  * Delete record by primary key.
  *
- * @returns {(Promise<T[K] | undefined>)}
  * @example
- * db.delete('store', 1)
+ * db.store('books').delete(1)
+ *
  */
-delete<K extends keyof T>(store: K, key: any): Promise<T[K] | undefined>;
+delete(key: any): Promise<T[K] | undefined>;
 
 /**
- * Delete records by key range or index and key range
+ * Delete multi records by primary keys.
  *
- * @returns {Promise<T[K][]>}
  * @example
- * db.deleteBy('store', 'index', range => range.bound(1, 100))
+ * db.store('books').bulkDelete([1, 2, 3])
+ *
  */
-deleteBy<K extends keyof T>(store: K, range: Request.RangeFunction): Promise<T[K][]>;
-deleteBy<K extends keyof T>(store: K, index: keyof T[K] | string, range: Request.RangeFunction): Promise<T[K][]>;
+bulkDelete(keys: any[]): Promise<T[K][]>;
 
 /**
- * Delete mutli records by primary keys.
+ * Delete All records in the store.
  *
- * @returns {Promise<T[K][]>}
  * @example
- * db.bulkDelete('store', [1, 2, 3])
- */
-bulkDelete<K extends keyof T>(store: K, keys: any[]): Promise<T[K][]>;
-
-/**
- * Delete All record.
+ * db.store('books').clear()
  *
- * @returns {Promise<T[K][]>}
- * @example
- * db.clear('store')
  */
-clear<K extends keyof T>(store: K): Promise<T[K][]>;
+clear(): Promise<T[K][]>;
 ```
 
-### Getter API
+### Transaction API
 
 ```js
-readonly isOpen: boolean;
-readonly backendDB: IDBDatabase;
-readonly currentVersion: number;
-readonly KeyRange: typeof IDBKeyRange;
-readonly storeNames: string[];
+/**
+ * Create transaction explicitly and execute it.
+ * Transaction can rollback when you call abort().
+ *
+ * @example
+ * db.transaction('books', 'r', function*($) {
+ *    yield $('books').set({ id: 1, title: 'MyBook', page: 10 })
+ *    return yield $('books').getAll()
+ * })
+ *
+ */
+transaction<K extends keyof T>(scope: K | K[], mode: Trx.Mode, executor: Trx.Executor<T>): Promise<any>;
+
+namespace Trx {
+    type Mode = 'r' | 'rw';
+
+    interface Selector<T> {
+        <K extends keyof T>(store: K): Operation<T, K>;
+    }
+
+    interface AbortFunciton {
+        (): () => void;
+    }
+
+    interface Executor<T> {
+        (selector: Selector<T> & {abort: AbortFunciton }): IterableIterator<(next: Function) => (IDBRequest | void)>;
+    }
+}
 ```
 
+```js
+/**
+ * Get record count
+ *
+ * @example
+ * db.transaction('store', 'r', function* ($){
+ *   const count: number = yield $('store').count()
+ * })
+ *
+ */
+count<T, K extends keyof T>(this: Operation<T, K>): (next: Function) => IDBRequest;
+
+/**
+ * Get record by primary key.
+ *
+ * @example
+ * db.transaction('store', 'r', function* ($){
+ *   const record = yield $('store').get(1)
+ *   return record // record or undefined
+ * })
+ *
+ */
+get<T, K extends keyof T>(this: Operation<T, K>, key: any): (next: Function) => IDBRequest;
+
+/**
+ * Get All records in the store.
+ *
+ * @example
+ * db.transaction('store', 'r', function* ($){
+ *   const records = yield $('store').getAll()
+ * })
+ */
+getAll<T, K extends keyof T>(this: Operation<T, K>): (next: Function) => IDBRequest;
+
+/**
+ * Set record
+ *
+ * @example
+ * db.transaction('store', 'r', function* ($) {
+ *   const record = yield $('store').set({ id: 1 })
+ *   return record // saved record
+ * })
+ *
+ */
+set<T, K extends keyof T>(this: Operation<T, K>, records: T[K], key?: any): (next: Function) => IDBRequest;
+
+/**
+ * Delete record by primary key.
+ * This function named 'delete' in the Operation class.
+ *
+ * @example
+ * db.transaction('store', 'r', function* ($){
+ *   const record = yield $('store').delete(1)
+ *   return record // deleted record or undefined
+ * })
+ *
+ */
+del<T, K extends keyof T>(this: Operation<T, K>, key: any): (next: Function) => IDBRequest;
+
+/**
+ * Clear records in the store.
+ *
+ * @example
+ * db.transaction('store', 'r', function* ($) {
+ *   const records = yield $('store').clear()
+ *   return records // deleted records
+ * })
+ */
+clear<T, K extends keyof T>(this: Operation<T, K>): (next: Function) => IDBRequest;
+
+/**
+ * Find records by key range of primary key or by index + key range of index.
+ *
+ * @example
+ * db.transaction('store', 'r', function* ($) {
+ *   const records = yield $('store').find(range => range.bound(1, 100)).toArray()
+ *   return records // finded records
+ * })
+ *
+ * @example
+ * db.transaction('store', 'r', function* ($) {
+ *   const records = yield $('store').find('index', range => range.bound(1, 100)).toArray()
+ *   return records // finded records
+ * })
+ *
+ */
+find<T, K extends keyof T>(this: Operation<T, K>, range: RangeFunction): FindPhase<T[K]>;
+find<T, K extends keyof T>(this: Operation<T, K>, index: K | string, range?: RangeFunction): FindPhase<T[K]>;
+
+////////////// FindPhase ////////////////
+/**
+ * Filter finded record.
+ *
+ * @example
+ * db.transaction('store', 'r', function* ($) {
+ *   const records = yield $('store').find(range => range.bound(1, 1000))
+ *    .filter((record) => record.bool)
+ *    .toArray()
+ *
+ *   return records // finded records
+ * })
+ *
+ */
+filter(predicate: (record: T) => boolean): FindPhase<T>;
+
+/**
+ * Map record to something.
+ *
+ * @example
+ * db.transaction('store', 'r', function* ($) {
+ *   const records = yield $('store').find(range => range.bound(1, 1000))
+ *    .map((record) => ({ ...record, a: record.a + 1000 }))
+ *    .toArray()
+ *
+ *   return records // finded records with mapped
+ * })
+ *
+ */
+map<R>(mapFn: (record: T) => R): FindPhase<R>;
+
+/**
+ * Call a function for each record.
+ *
+ * @example
+ * db.transaction('store', 'r', function* ($) {
+ *   yield $('store').find(range => range.bound(1, 100))
+ *     .each((record) => doSomething(record))
+ * })
+ */
+each<T>(this: FindPhase<T>, fn: (record: T) => any): (next: Function) => IDBRequest;
+
+/**
+ * Get finded records as Array.
+ *
+ * @example
+ * db.transaction('store', 'r', function* ($) {
+ *    return yield $('store').find(range => range.bound(1, 100)).toArray()
+ * })
+ */
+toArray<T>(this: FindPhase<T>): (next: Function) => IDBRequest;
+
+/**
+ * Batch operation.
+ * batch() can delete or update each record.
+ *
+ * @example
+ * // delete each record
+ * db.transaction('store', 'r', function* ($) {
+ *   const records = yield $('store').find(range => range.bound(1, 100))
+ *     .batch('delete')
+ *
+ *   return records // deleted records
+ * })
+ *
+ * @example
+ * // update each record
+ * db.transaction('store', 'r', function* ($) {
+ *   const records = yield $('store').find(range => range.bound(1, 100))
+ *     .batch('update', (record) => ({...record, done: true }))
+ *
+ *   return records // updated records
+ * })
+ *
+ */
+batch<T>(this: FindPhase<T>, operation: 'delete'): (next: Function) => IDBRequest;
+batch<T>(this: FindPhase<T>, operation: 'update', updater: (record: T) => T): (next: Function) => IDBRequest;
+```
 
 ## Advanced
 
-### Working on Node.js for testing
+### Testing on Node.js
 
 ```
 npm i -D fake-indexeddb
@@ -230,8 +436,37 @@ npm i -D fake-indexeddb
 
 ```js
 const option = {
-    IDBFactory: require('fake-indexeddb'),
-    IDBKeyRange: require('fake-indexeddb/lib/FDBKeyRange')
+	IDBFactory: require('fake-indexeddb'),
+	IDBKeyRange: require('fake-indexeddb/lib/FDBKeyRange')
 }
 const db = new IdxdDB('name', option)
 ```
+
+
+### TypeScript
+
+```js
+interface BookModel {
+	id?: number;
+	info: {
+		title: string;
+	}
+}
+
+interface Stores {
+	books: BookModel;
+}
+
+const db = new IdxdDB<Stores>('DatabaseName')
+	.version(1, schema)
+	.open()
+```
+
+### More API detail and example
+
+See `/src` and `test/src`.
+
+
+## TODO
+
+- [ ] data migration
