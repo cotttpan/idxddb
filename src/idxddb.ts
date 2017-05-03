@@ -40,7 +40,7 @@ export namespace Trx {
 export class IdxdDB<T> {
     readonly dbName: string;
     protected _db: IDBDatabase;
-    readonly _Factory: IDBFactory;
+    readonly Factory: IDBFactory;
     readonly KeyRange: typeof IDBKeyRange;
     protected _events = new Minitter<EventTypes<T>>();
     protected _versionMap: Map<number, Luncher.Schema> = new Map();
@@ -48,10 +48,11 @@ export class IdxdDB<T> {
 
     constructor(name: string, options: IdxdDBOptions = {}) {
         this.dbName = name;
-        this._Factory = options.IDBFactory || indexedDB;
+        this.Factory = options.IDBFactory || indexedDB;
         this.KeyRange = options.IDBKeyRange || IDBKeyRange;
     }
 
+    // TODO: awaitable
     /* ====================================
      * Getter Property
     ======================================= */
@@ -95,7 +96,7 @@ export class IdxdDB<T> {
         if (this.isOpen) return this;
 
         const [version, schema] = u.last(this._versionMap);
-        const req = this._Factory.open(this.dbName, version);
+        const req = this.Factory.open(this.dbName, version);
         const onerror = (err: DOMError) => this._events.emit('error', err);
         const onsuccess = (db: IDBDatabase) => {
             this._db = db;
@@ -119,7 +120,7 @@ export class IdxdDB<T> {
     delete(onblocked?: () => any) {
         return new Promise<void>((resolve, reject) => {
             this.isOpen && this.close();
-            const req = this._Factory.deleteDatabase(this.dbName);
+            const req = this.Factory.deleteDatabase(this.dbName);
 
             req.onblocked = function () {
                 onblocked && onblocked();
