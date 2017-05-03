@@ -82,7 +82,7 @@ exports.getAll = getAll;
  * @param {*} [key]
  * @example
  * @example
- * db.transaction('store', 'r', function* ($) {
+ * db.transaction('store', 'rw', function* ($) {
  *   const record = yield $('store').set({ id: 1 })
  *   return record // saved record
  * })
@@ -102,7 +102,7 @@ exports.set = set;
  *
  * @param {*} key
  * @example
- * db.transaction('store', 'r', function* ($){
+ * db.transaction('store', 'rw', function* ($) {
  *   const record = yield $('store').delete(1)
  *   return record // deleted record or undefined
  * })
@@ -123,7 +123,7 @@ exports.del = del;
  * Clear records in the store.
  *
  * @example
- * db.transaction('store', 'r', function* ($) {
+ * db.transaction('store', 'rw', function* ($) {
  *   const records = yield $('store').clear()
  *   return records // deleted records
  * })
@@ -166,7 +166,7 @@ class FindPhase {
      *    .filter((record) => record.bool)
      *    .toArray()
      *
-     *   return records // finded records
+     *   return records
      * })
      *
      */
@@ -186,7 +186,7 @@ class FindPhase {
      *    .map((record) => ({ ...record, a: record.a + 1000 }))
      *    .toArray()
      *
-     *   return records // finded records with mapped
+     *   return records // records with mapped
      * })
      *
      */

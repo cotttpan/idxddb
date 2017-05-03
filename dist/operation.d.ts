@@ -51,7 +51,7 @@ export declare function getAll<T, K extends keyof T>(this: Operation<T, K>): (ne
  * @param {*} [key]
  * @example
  * @example
- * db.transaction('store', 'r', function* ($) {
+ * db.transaction('store', 'rw', function* ($) {
  *   const record = yield $('store').set({ id: 1 })
  *   return record // saved record
  * })
@@ -64,7 +64,7 @@ export declare function set<T, K extends keyof T>(this: Operation<T, K>, records
  *
  * @param {*} key
  * @example
- * db.transaction('store', 'r', function* ($){
+ * db.transaction('store', 'rw', function* ($) {
  *   const record = yield $('store').delete(1)
  *   return record // deleted record or undefined
  * })
@@ -75,7 +75,7 @@ export declare function del<T, K extends keyof T>(this: Operation<T, K>, key: an
  * Clear records in the store.
  *
  * @example
- * db.transaction('store', 'r', function* ($) {
+ * db.transaction('store', 'rw', function* ($) {
  *   const records = yield $('store').clear()
  *   return records // deleted records
  * })
@@ -117,7 +117,7 @@ export declare class FindPhase<T> {
      *    .filter((record) => record.bool)
      *    .toArray()
      *
-     *   return records // finded records
+     *   return records
      * })
      *
      */
@@ -133,7 +133,7 @@ export declare class FindPhase<T> {
      *    .map((record) => ({ ...record, a: record.a + 1000 }))
      *    .toArray()
      *
-     *   return records // finded records with mapped
+     *   return records // records with mapped
      * })
      *
      */
@@ -172,7 +172,7 @@ export declare function toArray<T>(this: FindPhase<T>): (next: Function) => IDBR
  * @returns {*}
  * @example
  * // delete each record
- * db.transaction('store', 'r', function* ($) {
+ * db.transaction('store', 'rw', function* ($) {
  *   const records = yield $('store').find(range => range.bound(1, 100))
  *     .batch('delete')
  *
@@ -180,7 +180,7 @@ export declare function toArray<T>(this: FindPhase<T>): (next: Function) => IDBR
  * })
  * @example
  * // update each record
- * db.transaction('store', 'r', function* ($) {
+ * db.transaction('store', 'rw', function* ($) {
  *   const records = yield $('store').find(range => range.bound(1, 100))
  *     .batch('update', (record) => ({...record, done: true }))
  *

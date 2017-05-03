@@ -29,12 +29,12 @@ export declare namespace Trx {
  * Public Api
  *
  * @class IdxdDB
- * @template T - { [Store]: RecordTypes }
+ * @template T - { [storeName]: RecordTypes }
  */
 export declare class IdxdDB<T> {
     readonly dbName: string;
     protected _db: IDBDatabase;
-    readonly _Factory: IDBFactory;
+    readonly Factory: IDBFactory;
     readonly KeyRange: typeof IDBKeyRange;
     protected _events: Minitter<EventTypes<T>>;
     protected _versionMap: Map<number, Luncher.Schema>;
@@ -51,7 +51,7 @@ export declare class IdxdDB<T> {
     close(): this;
     delete(onblocked?: () => any): Promise<void>;
     /**
-     * Make task implemntation awaitable until database is opening.
+     * Make task implementation awaitable until database is opened.
      *
      * @param {(resolve: Function, reject: Function) => (self: IdxdDB<T>) => any} task
      * @returns {Promise<any>}
@@ -62,13 +62,13 @@ export declare class IdxdDB<T> {
      * Create transaction explicitly and execute it.
      * Transaction can rollback when you call abort().
      *
-     * @template K
-     * @param {(K | K[])} scope
-     * @param {Trx.Mode} mode
+     * @template K - keyof store
+     * @param {(K | K[])} scope - keyof store
+     * @param {('r' | 'rw')} mode
      * @param {Trx.Executor<T>} executor
      * @returns {Promise<any>}
      * @example
-     * db.transaction('books', 'r', function*($) {
+     * db.transaction('books', 'rw', function* ($) {
      *    yield $('books').set({ id: 1, title: 'MyBook', page: 10 })
      *    return yield $('books').getAll()
      * })
@@ -78,7 +78,7 @@ export declare class IdxdDB<T> {
     /**
      * Operate single store (e.g. get / set / delete)
      *
-     * @template K
+     * @template K - store name
      * @param {K} name
      * @returns SimpleCrudApi
      * @example
@@ -90,13 +90,16 @@ export declare class IdxdDB<T> {
 /**
  * Simple CurdApi for single store.
  * Each methods implements one transaction and one operation on single store.
+ *
+ * @template {T} - { [storeName]: RecordTypes }
+ * @template {K} - storeName
  */
 export declare class SimpleCrudApi<T, K extends keyof T> {
     private idxd;
     private store;
     constructor(idxd: IdxdDB<T>, store: K);
     /**
-     * Get record count.
+     * Get record count
      *
      * @returns {Promise<number>}
      * @example
@@ -140,7 +143,7 @@ export declare class SimpleCrudApi<T, K extends keyof T> {
     find(index: keyof T[K] | string, range?: RangeFunction): Promise<T[K][]>;
     /**
      * Set record.
-     * This method execute IDBDatabase.put().
+     * This method is executed by IDBDatabase.put().
      *
      * @param {T[K]} record
      * @param {*} [key]

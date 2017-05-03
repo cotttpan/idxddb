@@ -14,7 +14,7 @@ var Trx;
  * Public Api
  *
  * @class IdxdDB
- * @template T - { [Store]: RecordTypes }
+ * @template T - { [storeName]: RecordTypes }
  */
 class IdxdDB {
     constructor(name, options = {}) {
@@ -22,9 +22,10 @@ class IdxdDB {
         this._versionMap = new Map();
         this._isOpen = false;
         this.dbName = name;
-        this._Factory = options.IDBFactory || indexedDB;
+        this.Factory = options.IDBFactory || indexedDB;
         this.KeyRange = options.IDBKeyRange || IDBKeyRange;
     }
+    // TODO: awaitable
     /* ====================================
      * Getter Property
     ======================================= */
@@ -60,7 +61,7 @@ class IdxdDB {
         if (this.isOpen)
             return this;
         const [version, schema] = u.last(this._versionMap);
-        const req = this._Factory.open(this.dbName, version);
+        const req = this.Factory.open(this.dbName, version);
         const onerror = (err) => this._events.emit('error', err);
         const onsuccess = (db) => {
             this._db = db;
@@ -80,7 +81,7 @@ class IdxdDB {
     delete(onblocked) {
         return new Promise((resolve, reject) => {
             this.isOpen && this.close();
-            const req = this._Factory.deleteDatabase(this.dbName);
+            const req = this.Factory.deleteDatabase(this.dbName);
             req.onblocked = function () {
                 onblocked && onblocked();
             };
@@ -96,7 +97,7 @@ class IdxdDB {
      * Transaction
     ======================================= */
     /**
-     * Make task implemntation awaitable until database is opening.
+     * Make task implementation awaitable until database is opened.
      *
      * @param {(resolve: Function, reject: Function) => (self: IdxdDB<T>) => any} task
      * @returns {Promise<any>}
@@ -112,13 +113,13 @@ class IdxdDB {
      * Create transaction explicitly and execute it.
      * Transaction can rollback when you call abort().
      *
-     * @template K
-     * @param {(K | K[])} scope
-     * @param {Trx.Mode} mode
+     * @template K - keyof store
+     * @param {(K | K[])} scope - keyof store
+     * @param {('r' | 'rw')} mode
      * @param {Trx.Executor<T>} executor
      * @returns {Promise<any>}
      * @example
-     * db.transaction('books', 'r', function*($) {
+     * db.transaction('books', 'rw', function* ($) {
      *    yield $('books').set({ id: 1, title: 'MyBook', page: 10 })
      *    return yield $('books').getAll()
      * })
@@ -145,7 +146,7 @@ class IdxdDB {
     /**
      * Operate single store (e.g. get / set / delete)
      *
-     * @template K
+     * @template K - store name
      * @param {K} name
      * @returns SimpleCrudApi
      * @example
@@ -160,6 +161,9 @@ exports.IdxdDB = IdxdDB;
 /**
  * Simple CurdApi for single store.
  * Each methods implements one transaction and one operation on single store.
+ *
+ * @template {T} - { [storeName]: RecordTypes }
+ * @template {K} - storeName
  */
 class SimpleCrudApi {
     constructor(idxd, store) {
@@ -167,7 +171,7 @@ class SimpleCrudApi {
         this.store = store;
     }
     /**
-     * Get record count.
+     * Get record count
      *
      * @returns {Promise<number>}
      * @example
@@ -219,7 +223,7 @@ class SimpleCrudApi {
     }
     /**
      * Set record.
-     * This method execute IDBDatabase.put().
+     * This method is executed by IDBDatabase.put().
      *
      * @param {T[K]} record
      * @param {*} [key]

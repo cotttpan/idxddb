@@ -324,7 +324,7 @@ export class SimpleCrudApi<T, K extends keyof T> {
         return this.idxd.transaction(self.store, 'rw', function* ($) {
             const _records: T[K][] = [];
             for (const r of records) _records.push(yield $(self.store).set(r));
-            return _records;
+            return _records as any;
         });
     }
 
@@ -358,7 +358,7 @@ export class SimpleCrudApi<T, K extends keyof T> {
         return this.idxd.transaction(self.store, 'rw', function* ($) {
             const _records: T[K][] = [];
             for (const k of keys) _records.push(yield $(self.store).delete(k));
-            return _records;
+            return _records as any;
         });
     }
 
