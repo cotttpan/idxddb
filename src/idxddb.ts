@@ -35,7 +35,7 @@ export namespace Trx {
  * Public Api
  *
  * @class IdxdDB
- * @template T - { [Store]: RecordTypes }
+ * @template T - { [storeName]: RecordTypes }
  */
 export class IdxdDB<T> {
     readonly dbName: string;
@@ -138,7 +138,7 @@ export class IdxdDB<T> {
      * Transaction
     ======================================= */
     /**
-     * Make task implemntation awaitable until database is opening.
+     * Make task implementation awaitable until database is opened.
      *
      * @param {(resolve: Function, reject: Function) => (self: IdxdDB<T>) => any} task
      * @returns {Promise<any>}
@@ -155,13 +155,13 @@ export class IdxdDB<T> {
      * Create transaction explicitly and execute it.
      * Transaction can rollback when you call abort().
      *
-     * @template K
-     * @param {(K | K[])} scope
-     * @param {Trx.Mode} mode
+     * @template K - keyof store
+     * @param {(K | K[])} scope - keyof store
+     * @param {('r' | 'rw')} mode
      * @param {Trx.Executor<T>} executor
      * @returns {Promise<any>}
      * @example
-     * db.transaction('books', 'r', function*($) {
+     * db.transaction('books', 'rw', function* ($) {
      *    yield $('books').set({ id: 1, title: 'MyBook', page: 10 })
      *    return yield $('books').getAll()
      * })
@@ -194,13 +194,14 @@ export class IdxdDB<T> {
     /**
      * Operate single store (e.g. get / set / delete)
      *
-     * @template K
+     * @template K - store name
      * @param {K} name
      * @returns SimpleCrudApi
      * @example
      * db.store('books').get(1)
      *
      */
+
     store<K extends keyof T>(name: K) {
         return new SimpleCrudApi<T, K>(this, name);
     }
@@ -209,6 +210,9 @@ export class IdxdDB<T> {
 /**
  * Simple CurdApi for single store.
  * Each methods implements one transaction and one operation on single store.
+ *
+ * @template {T} - { [storeName]: RecordTypes }
+ * @template {K} - storeName
  */
 export class SimpleCrudApi<T, K extends keyof T> {
     private idxd: IdxdDB<T>;
@@ -220,7 +224,7 @@ export class SimpleCrudApi<T, K extends keyof T> {
     }
 
     /**
-     * Get record count.
+     * Get record count
      *
      * @returns {Promise<number>}
      * @example
@@ -291,7 +295,7 @@ export class SimpleCrudApi<T, K extends keyof T> {
 
     /**
      * Set record.
-     * This method execute IDBDatabase.put().
+     * This method is executed by IDBDatabase.put().
      *
      * @param {T[K]} record
      * @param {*} [key]
