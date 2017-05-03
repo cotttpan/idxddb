@@ -1,6 +1,6 @@
 # IdxdDB
 
-IndexdDB Wrapper
+IndexdDB wrapper
 
 ## Install
 
@@ -92,7 +92,7 @@ const schama = [
 
 ### CRUD operation example
 
-Operation API has two way that simple store operation API and Transaction API that create it explicitly.
+Operating has two way that simple store operation API and Transaction API that create it explicitly.
 
 #### Simple Operation
 
@@ -111,21 +111,23 @@ db.store('books').find(range => range.bound(1, 100))
 
 #### Create Transaction explicitly
 
-Transaction API can execute one transaction and multi operation to multi store.
+Transaction API can execute one transaction and multi operation to multi store by operator.
 It can `rollback` when transaction has error or you call `abort()`.
-It can also more efficiently data retrieval than simple operation api.
+
+There are two modes of `r` and `rw` at Transaction API. `r` is readonly, `rw` is readwrite. There modes are just a shorthand of IDBTransaction mode.
 
 ```js
-db.transaction(['books', 'users'], 'rw', funciton* ($ /*operator*/) {
+db.transaction(['books', 'users'], 'rw', funciton* ($ /* operator */) {
     // WARN: operator must need to call with "yeild" keyword
-    const book /* saved record */ = yield $('books').set({ id: 1, info: { title: 'MyBook'} })
-    const user /* saved record */ = yield $('users').set({ id: 1, name: 'taro', age: 20 })
     const books = yield $('books').getAll()
     const users = yield $('users').getAll()
-
     return [books, users]
 })
+```
 
+Transaction API can also more efficiently data retrieval than simple operation api.
+
+```js
 db.transaction(['users'], 'r', funciton* ($) {
     return yield $('users').find('age', range => range.bound(20, 50))
         .filter((user) => (/^a/i).test(user.name))
@@ -181,7 +183,7 @@ find(index: keyof T[K] | string, range?: RangeFunction): Promise<T[K][]>;
 
 /**
  * Set record.
- * This method execute IDBDatabase.put().
+ * This method is executed by IDBDatabase.put().
  *
  * @example
  * db.store('books').set({ title: 'MyBook', page: 300 })
@@ -296,7 +298,7 @@ getAll<T, K extends keyof T>(this: Operation<T, K>): (next: Function) => IDBRequ
  * Set record
  *
  * @example
- * db.transaction('store', 'r', function* ($) {
+ * db.transaction('store', 'rw', function* ($) {
  *   const record = yield $('store').set({ id: 1 })
  *   return record // saved record
  * })
@@ -309,7 +311,7 @@ set<T, K extends keyof T>(this: Operation<T, K>, records: T[K], key?: any): (nex
  * This function named 'delete' in the Operation class.
  *
  * @example
- * db.transaction('store', 'r', function* ($){
+ * db.transaction('store', 'rw', function* ($){
  *   const record = yield $('store').delete(1)
  *   return record // deleted record or undefined
  * })
@@ -321,7 +323,7 @@ del<T, K extends keyof T>(this: Operation<T, K>, key: any): (next: Function) => 
  * Clear records in the store.
  *
  * @example
- * db.transaction('store', 'r', function* ($) {
+ * db.transaction('store', 'rw', function* ($) {
  *   const records = yield $('store').clear()
  *   return records // deleted records
  * })
@@ -357,7 +359,7 @@ find<T, K extends keyof T>(this: Operation<T, K>, index: K | string, range?: Ran
  *    .filter((record) => record.bool)
  *    .toArray()
  *
- *   return records // finded records
+ *   return records // records
  * })
  *
  */
@@ -372,7 +374,7 @@ filter(predicate: (record: T) => boolean): FindPhase<T>;
  *    .map((record) => ({ ...record, a: record.a + 1000 }))
  *    .toArray()
  *
- *   return records // finded records with mapped
+ *   return records // records with mapped
  * })
  *
  */
@@ -405,7 +407,7 @@ toArray<T>(this: FindPhase<T>): (next: Function) => IDBRequest;
  *
  * @example
  * // delete each record
- * db.transaction('store', 'r', function* ($) {
+ * db.transaction('store', 'rw', function* ($) {
  *   const records = yield $('store').find(range => range.bound(1, 100))
  *     .batch('delete')
  *
@@ -414,7 +416,7 @@ toArray<T>(this: FindPhase<T>): (next: Function) => IDBRequest;
  *
  * @example
  * // update each record
- * db.transaction('store', 'r', function* ($) {
+ * db.transaction('store', 'rw', function* ($) {
  *   const records = yield $('store').find(range => range.bound(1, 100))
  *     .batch('update', (record) => ({...record, done: true }))
  *
