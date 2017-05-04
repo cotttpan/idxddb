@@ -1,6 +1,7 @@
 import Minitter, { Listener } from 'minitter';
 import * as Luncher from './luncher';
-import { Operation, RangeFunction } from './operation';
+import * as Trx from './transaction';
+import { RangeFunction } from './operation';
 import * as u from './utils';
 
 export { Schema, IndexDescription, StoreDescription } from './luncher';
@@ -13,22 +14,6 @@ export interface IdxdDBOptions {
 export interface EventTypes<T> {
     ready: IdxdDB<T>;
     error: any;
-}
-
-export namespace Trx {
-    export type Mode = 'r' | 'rw';
-    export const parseMode = (mode: Mode) => {
-        return mode === 'rw' ? 'readwrite' : 'readonly';
-    };
-    export interface Selector<T> {
-        <K extends keyof T>(store: K): Operation<T, K>;
-    }
-    export interface AbortFunciton {
-        (): () => void;
-    }
-    export interface Executor<T> {
-        (selector: Selector<T> & { abort: AbortFunciton }): IterableIterator<(next: Function) => (IDBRequest | void)>;
-    }
 }
 
 /**
@@ -168,27 +153,7 @@ export class IdxdDB<T> {
      *
      */
     transaction<K extends keyof T>(scope: K | K[], mode: Trx.Mode, executor: Trx.Executor<T>) {
-        const exec = (resolve: Function, reject: Function) => (self: IdxdDB<T>) => {
-
-            const trx = self.db.transaction(scope, Trx.parseMode(mode));
-            const select = (store: K) => new Operation<T, K>(self, trx.objectStore(store));
-            const abort = () => () => trx.abort();
-            const i = executor(Object.assign(select, { abort }));
-
-            trx.addEventListener('error', handleReject);
-            trx.addEventListener('abort', handleReject);
-
-            (function tick(value?: any) {
-                const ir = i.next(value);
-                ir.done ? trx.addEventListener('complete', resolve.bind(null, ir.value)) : ir.value(tick);
-            }());
-
-            function handleReject(this: IDBTransaction) {
-                reject(this.error);
-            }
-        };
-
-        return this.awaitable(exec);
+        return this.awaitable(Trx.create<T, K>(scope, mode, executor));
     }
 
     /**
