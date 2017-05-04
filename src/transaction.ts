@@ -12,16 +12,30 @@ export interface AbortFunciton {
     (): () => void;
 }
 export interface Executor<T> {
+    // https://github.com/cotttpan/idxddb/issues/5
     (selector: Selector<T> & { abort: AbortFunciton }): IterableIterator<any>;
 }
 
+/**
+ * Create transaction
+ *
+ * @export
+ * @template T - {[storeName]: Model}
+ * @template K
+ * @param {(K | K[])} scope
+ * @param {Mode} mode
+ * @param {Executor<T>} executor
+ * @returns {Function}
+ */
 export function create<T, K extends keyof T>(scope: K | K[], mode: Mode, executor: Executor<T>) {
     return (resolve: Function, reject: Function) => (self: IdxdDB<T>) => {
 
         const trx = self.db.transaction(scope, parseMode(mode));
-        const select = (store: K) => new Operation<T, K>(self, trx.objectStore(store));
-        const abort = () => () => trx.abort();
-        const i = executor(Object.assign(select, { abort }));
+
+        const select: any = (store: K) => new Operation<T, K>(self, trx.objectStore(store));
+        select.abort = () => () => trx.abort();
+
+        const i = executor(select);
 
         trx.addEventListener('error', handleReject);
         trx.addEventListener('abort', handleReject);
