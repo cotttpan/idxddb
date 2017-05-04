@@ -11,9 +11,14 @@ export interface IdxdDBOptions {
     IDBKeyRange?: typeof IDBKeyRange;
 }
 
-export interface EventTypes<T> {
-    ready: IdxdDB<T>;
+export interface EventTypes {
+    ready: Backend;
     error: any;
+}
+
+export interface Backend {
+    db: IDBDatabase;
+    KeyRange: typeof IDBKeyRange;
 }
 
 /**
@@ -27,7 +32,7 @@ export class IdxdDB<T> {
     protected _db: IDBDatabase;
     readonly Factory: IDBFactory;
     readonly KeyRange: typeof IDBKeyRange;
-    protected _events = new Minitter<EventTypes<T>>();
+    protected _events = new Minitter<EventTypes>();
     protected _versionMap: Map<number, Luncher.Schema> = new Map();
     protected _isOpen: boolean = false;
 
@@ -60,11 +65,11 @@ export class IdxdDB<T> {
     /* ====================================
      * Events
     ======================================= */
-    on<K extends keyof EventTypes<T>>(event: K, listener: Listener<EventTypes<T>, K>) {
+    on<K extends keyof EventTypes>(event: K, listener: Listener<EventTypes, K>) {
         this._events.on(event, listener);
     }
 
-    once<K extends keyof EventTypes<T>>(event: K, listener: Listener<EventTypes<T>, K>) {
+    once<K extends keyof EventTypes>(event: K, listener: Listener<EventTypes, K>) {
         this._events.once(event, listener);
     }
 
@@ -86,7 +91,7 @@ export class IdxdDB<T> {
         const onsuccess = (db: IDBDatabase) => {
             this._db = db;
             this._isOpen = true;
-            this._events.emit('ready', this);
+            this._events.emit('ready', { db, KeyRange: this.KeyRange });
         };
 
         req.onupgradeneeded = Luncher.onupgradeneeded(schema);
@@ -129,10 +134,11 @@ export class IdxdDB<T> {
      * @returns {Promise<any>}
      *
      */
-    awaitable(task: (resolve: Function, reject: Function) => (self: IdxdDB<T>) => any) {
+    awaitable(task: (resolve: Function, reject: Function) => (db: { db: IDBDatabase, KeyRange: typeof IDBKeyRange }) => any) {
         return new Promise<any>((resolve, reject) => {
             const _task = task(resolve, u.bundle(reject, (err: any) => this._events.emit('error', err)));
-            this.isOpen ? _task(this) : this._events.once('ready', _task);
+            const bk = { db: this.db, KeyRange: this.KeyRange };
+            this.isOpen ? _task(bk) : this._events.once('ready', _task);
         });
     }
 

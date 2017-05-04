@@ -1,4 +1,3 @@
-import { IdxdDB } from './idxddb';
 import { Operation } from './operation';
 
 export type Mode = 'r' | 'rw';
@@ -28,11 +27,12 @@ export interface Executor<T> {
  * @returns {Function}
  */
 export function create<T, K extends keyof T>(scope: K | K[], mode: Mode, executor: Executor<T>) {
-    return (resolve: Function, reject: Function) => (self: IdxdDB<T>) => {
-
-        const trx = self.db.transaction(scope, parseMode(mode));
-
-        const select: any = (store: K) => new Operation<T, K>(self, trx.objectStore(store));
+    return (resolve: Function, reject: Function) => (
+        backend: { db: IDBDatabase, KeyRange: typeof IDBKeyRange },
+        transaction?: IDBTransaction,
+    ) => {
+        const trx = transaction ? transaction : backend.db.transaction(scope, parseMode(mode));
+        const select: any = (store: K) => new Operation<T, K>(backend.KeyRange, trx.objectStore(store));
         select.abort = () => () => trx.abort();
 
         const i = executor(select);

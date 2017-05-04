@@ -1,4 +1,3 @@
-import { IdxdDB } from './idxddb';
 import * as u from './utils';
 
 export type RangeFunction = (range: typeof IDBKeyRange) => IDBKeyRange;
@@ -7,14 +6,13 @@ export type RangeFunction = (range: typeof IDBKeyRange) => IDBKeyRange;
  * Operation
 ================================================================= */
 export class Operation<T, K extends keyof T> {
-    idxd: IdxdDB<T>;
+    KeyRange: typeof IDBKeyRange;
     store: IDBObjectStore;
     target: K; // store name
 
-    constructor(idxd: IdxdDB<T>, store: IDBObjectStore) {
-        this.idxd = idxd;
+    constructor(KeyRange: typeof IDBKeyRange, store: IDBObjectStore) {
+        this.KeyRange = KeyRange;
         this.store = store;
-        this.target = store.name as K;
     }
 
     count: typeof count;
@@ -125,7 +123,7 @@ export function set<T, K extends keyof T>(this: Operation<T, K>, records: T[K], 
  */
 export function del<T, K extends keyof T>(this: Operation<T, K>, key: any) {
     return (next: Function) => {
-        const req = this.store.openCursor(this.idxd.KeyRange.only(key));
+        const req = this.store.openCursor(this.KeyRange.only(key));
         const reciver = (cursor: IDBCursorWithValue) => {
             cursor.delete().onsuccess = next.bind(null, cursor.value);
         };
@@ -180,7 +178,7 @@ export function find<T, K extends keyof T>(this: Operation<T, K>, index: K | str
 export function find<T, K extends keyof T>(this: Operation<T, K>, a1: any, a2?: any): FindPhase<T[K]> {
     const [index, range] = (typeof a1 === 'string') ? [a1, a2] : [undefined, a1];
     const target = index ? this.store.index(index) : this.store;
-    const getReq = () => target.openCursor(range && range(this.idxd.KeyRange));
+    const getReq = () => target.openCursor(range && range(this.KeyRange));
     return new FindPhase<T[K]>(getReq, this);
 }
 
