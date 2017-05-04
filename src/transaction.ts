@@ -12,10 +12,9 @@ export interface AbortFunciton {
     (): () => void;
 }
 export interface Executor<T> {
-    (selector: Selector<T> & { abort: AbortFunciton }): IterableIterator<(next: Function) => (IDBRequest | void)>;
+    (selector: Selector<T> & { abort: AbortFunciton }): IterableIterator<any>;
 }
-/*
-*/
+
 export function create<T, K extends keyof T>(scope: K | K[], mode: Mode, executor: Executor<T>) {
     return (resolve: Function, reject: Function) => (self: IdxdDB<T>) => {
 
