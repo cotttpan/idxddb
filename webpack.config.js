@@ -2,12 +2,11 @@ const path = require('path');
 const webpack = require('webpack');
 const merge = require('webpack-merge');
 const WebpackNotifierPlugin = require('webpack-notifier');
-const BabiliPlugin = require("babili-webpack-plugin");
 
 const NODE_ENV = process.env.NODE_ENV || 'development';
-const TEST_ENV = process.env.TEST_ENV || 'node'
+const TEST_ENV = process.env.TEST_ENV || 'node';
 const NPM_COMMAND = process.env.npm_lifecycle_event;
-
+// tslint:disable:no-console
 console.info(`
 :--------- process.env.NODE_ENV: ${NODE_ENV} ---------:,
 `);
@@ -33,9 +32,12 @@ let config = {
                         }
                     },
                     {
-                        loader: 'awesome-typescript-loader'
+                        loader: 'awesome-typescript-loader',
+                        options: {
+                            configFileName: 'tsconfig.webpack.json'
+                        }
                     }
-                ],
+                ]
             }
         ]
     },
@@ -50,7 +52,7 @@ let config = {
     ],
     resolve: {
         extensions: ['.ts', '.tsx', '.js', '.jsx']
-    },
+    }
 };
 
 if (NPM_COMMAND === 'start' || NPM_COMMAND === 'server') {

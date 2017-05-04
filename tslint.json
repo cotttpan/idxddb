@@ -4,5 +4,14 @@
     ],
     "rules": {
         "newline-before-return": false
+    },
+    "jsRules": {
+        "trailing-comma": [
+            true,
+            {
+                "multiline": "never",
+                "singleline": "never"
+            }
+        ]
     }
 }
