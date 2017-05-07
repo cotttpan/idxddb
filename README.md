@@ -33,7 +33,55 @@ const db = new IdxdDB('DatabaseName')
     .open()
 ```
 
-#### Schema Interface
+### CRUD operation example
+
+Operating has two way that simple store operation API and Transaction API that create it explicitly.
+
+#### Simple Operation
+
+Simple Operation execute one transaction and one operation to one store.
+
+```js
+// set record
+db.store('books').set({id: 1, info: { title: 'MyBook' }})
+
+// get record by primary key
+db.store('books').get(1)
+
+// find by key range of primary key
+db.store('books').find(range => range.bound(1, 100))
+```
+
+#### Create Transaction explicitly
+
+Transaction API can execute one transaction and multi operation to multi store by operator.
+
+It can `rollback` when transaction has error or you call `abort()`.
+
+There are two modes of `r` and `rw` at Transaction API. `r` is readonly, `rw` is readwrite. There modes are just a shorthand of IDBTransaction mode.
+
+```js
+db.transaction(['books', 'users'], 'rw', function* ($) {
+    // WARN: selector "$" must need to call with a "yeild" keyword.
+    const books = yield $('books').getAll()
+    const users = yield $('users').getAll()
+    return [books, users]
+})
+```
+
+Transaction API can also more efficiently data retrieval than simple operation api.
+
+```js
+db.transaction(['users'], 'r', function* ($) {
+    return yield $('users').find('age', range => range.bound(20, 50))
+        .filter((user) => (/^a/i).test(user.name))
+        .toArray()
+})
+```
+
+## API
+
+### Schema Interface
 
 ```js
 type Schema = StoreDescription[];
@@ -89,54 +137,6 @@ const schama = [
     }
 ]
 ```
-
-### CRUD operation example
-
-Operating has two way that simple store operation API and Transaction API that create it explicitly.
-
-#### Simple Operation
-
-Simple Operation execute one transaction and one operation to one store.
-
-```js
-// set record
-db.store('books').set({id: 1, info: { title: 'MyBook' }})
-
-// get record by primary key
-db.store('books').get(1)
-
-// find by key range of primary key
-db.store('books').find(range => range.bound(1, 100))
-```
-
-#### Create Transaction explicitly
-
-Transaction API can execute one transaction and multi operation to multi store by operator.
-
-It can `rollback` when transaction has error or you call `abort()`.
-
-There are two modes of `r` and `rw` at Transaction API. `r` is readonly, `rw` is readwrite. There modes are just a shorthand of IDBTransaction mode.
-
-```js
-db.transaction(['books', 'users'], 'rw', funciton* ($) {
-    // WARN: selector "$" must need to call with a "yeild" keyword.
-    const books = yield $('books').getAll()
-    const users = yield $('users').getAll()
-    return [books, users]
-})
-```
-
-Transaction API can also more efficiently data retrieval than simple operation api.
-
-```js
-db.transaction(['users'], 'r', funciton* ($) {
-    return yield $('users').find('age', range => range.bound(20, 50))
-        .filter((user) => (/^a/i).test(user.name))
-        .toArray()
-})
-```
-
-## API
 
 ### Simple CRUD API
 
@@ -244,23 +244,26 @@ clear(): Promise<T[K][]>;
  */
 transaction<K extends keyof T>(scope: K | K[], mode: Mode, executor: Executor<T>): Promise<any>;
 
-/*
- * Types
--------------------------------*/
+// ------------------------
+// types
+// ------------------------
 type Mode = 'r' | 'rw';
 
 interface AbortFunciton {
     (): () => void;
 }
+
 interface BackendAPI {
     db: IDBDatabase;
     trx: IDBTransaction;
     KeyRange: typeof IDBKeyRange;
 }
+
 interface Selector<T> {
     <K extends keyof T>(store: K): Operation<T, K>;
     abort: AbortFunciton;
 }
+
 interface Executor<T> {
     (selector: Selector<T>, backendApi: BackendAPI): IterableIterator<any>;
 }
@@ -464,13 +467,13 @@ const db = new IdxdDB('MyDB')
     .open();
 ```
 
-In The above example, `storeB` will create on version 2.
+In The above example, `storeB` will be created on version 2.
 
-IdxdDB will create database and store from the leatest version schema. So, IdxdDB require a complete schema in that version.
+Database and store will be created by the leatest version schema. IdxdDB require a complete schema in that version.
 
-- Store will created when schema has new store description.
-- Store will updated when index description of the store description is changed.
-- Store will deleted when store description dose not exist.
+- Store will be created when schema has a new store description.
+- Store will be updated when index description of the store description is changed.
+- Store will be deleted when store description dose not exist.
 
 When deleting store, records in the store is also deleted. You can get lostdata if you want.
 
