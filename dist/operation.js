@@ -5,10 +5,9 @@ const u = require("./utils");
  * Operation
 ================================================================= */
 class Operation {
-    constructor(idxd, store) {
-        this.idxd = idxd;
+    constructor(KeyRange, store) {
+        this.KeyRange = KeyRange;
         this.store = store;
-        this.target = store.name;
     }
 }
 exports.Operation = Operation;
@@ -110,7 +109,7 @@ exports.set = set;
  */
 function del(key) {
     return (next) => {
-        const req = this.store.openCursor(this.idxd.KeyRange.only(key));
+        const req = this.store.openCursor(this.KeyRange.only(key));
         const reciver = (cursor) => {
             cursor.delete().onsuccess = next.bind(null, cursor.value);
         };
@@ -141,7 +140,7 @@ exports.clear = clear;
 function find(a1, a2) {
     const [index, range] = (typeof a1 === 'string') ? [a1, a2] : [undefined, a1];
     const target = index ? this.store.index(index) : this.store;
-    const getReq = () => target.openCursor(range && range(this.idxd.KeyRange));
+    const getReq = () => target.openCursor(range && range(this.KeyRange));
     return new FindPhase(getReq, this);
 }
 exports.find = find;

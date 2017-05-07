@@ -1,10 +1,9 @@
-import { IdxdDB } from './idxddb';
 export declare type RangeFunction = (range: typeof IDBKeyRange) => IDBKeyRange;
 export declare class Operation<T, K extends keyof T> {
-    idxd: IdxdDB<T>;
+    KeyRange: typeof IDBKeyRange;
     store: IDBObjectStore;
     target: K;
-    constructor(idxd: IdxdDB<T>, store: IDBObjectStore);
+    constructor(KeyRange: typeof IDBKeyRange, store: IDBObjectStore);
     count: typeof count;
     get: typeof get;
     getAll: typeof getAll;
