@@ -1,7 +1,7 @@
 {
   "name": "idxddb",
   "description": "idxddb - indexedDB wrapper",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "author": "cotto",
   "bugs": {
     "url": "https://github.com/cotttpan/idxddb/issues"
