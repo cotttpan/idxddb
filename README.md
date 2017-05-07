@@ -15,7 +15,7 @@ https://www.npmjs.com/package/idxddb
 ### Create Store by schema and open Database
 
 ```js
-import IdxdDB from './idxddb';
+import IdxdDB from 'idxddb';
 
 const schema = [
     {
@@ -23,7 +23,7 @@ const schema = [
         keyPath: 'id',
         autoIncrement: true;
         indexes: [
-            { keyPath: 'info.title', as 'title' }
+            { keyPath: 'info.title', as: 'title' }
         ]
     }
 ]
@@ -84,7 +84,7 @@ const schama = [
         autoIncrement: true;
         indexes: [
             // index in nested property
-            { keyPath: 'info.title', as 'title' }
+            { keyPath: 'info.title', as: 'title' }
         ]
     }
 ]
@@ -112,13 +112,14 @@ db.store('books').find(range => range.bound(1, 100))
 #### Create Transaction explicitly
 
 Transaction API can execute one transaction and multi operation to multi store by operator.
+
 It can `rollback` when transaction has error or you call `abort()`.
 
 There are two modes of `r` and `rw` at Transaction API. `r` is readonly, `rw` is readwrite. There modes are just a shorthand of IDBTransaction mode.
 
 ```js
-db.transaction(['books', 'users'], 'rw', funciton* ($ /* operator */) {
-    // WARN: operator must need to call with "yeild" keyword
+db.transaction(['books', 'users'], 'rw', funciton* ($) {
+    // WARN: selector "$" must need to call with a "yeild" keyword.
     const books = yield $('books').getAll()
     const users = yield $('users').getAll()
     return [books, users]
@@ -241,22 +242,27 @@ clear(): Promise<T[K][]>;
  * })
  *
  */
-transaction<K extends keyof T>(scope: K | K[], mode: Trx.Mode, executor: Trx.Executor<T>): Promise<any>;
+transaction<K extends keyof T>(scope: K | K[], mode: Mode, executor: Executor<T>): Promise<any>;
 
-namespace Trx {
-    type Mode = 'r' | 'rw';
+/*
+ * Types
+-------------------------------*/
+type Mode = 'r' | 'rw';
 
-    interface Selector<T> {
-        <K extends keyof T>(store: K): Operation<T, K>;
-    }
-
-    interface AbortFunciton {
-        (): () => void;
-    }
-
-    interface Executor<T> {
-        (selector: Selector<T> & {abort: AbortFunciton }): IterableIterator<(next: Function) => (IDBRequest | void)>;
-    }
+interface AbortFunciton {
+    (): () => void;
+}
+interface BackendAPI {
+    db: IDBDatabase;
+    trx: IDBTransaction;
+    KeyRange: typeof IDBKeyRange;
+}
+interface Selector<T> {
+    <K extends keyof T>(store: K): Operation<T, K>;
+    abort: AbortFunciton;
+}
+interface Executor<T> {
+    (selector: Selector<T>, backendApi: BackendAPI): IterableIterator<any>;
 }
 ```
 
@@ -430,6 +436,56 @@ batch<T>(this: FindPhase<T>, operation: 'update', updater: (record: T) => T): (n
 
 ## Advanced
 
+### Schema migration
+
+```js
+const v1schema = [
+    {
+        name: 'storeA',
+        keyPath: 'id',
+        autoIncrement: true,
+        indexes: [
+            { keyPath: 'a' },
+        ],
+    },
+];
+
+const v2schema = [
+    ...v1schema,
+    {
+        name: 'storeB',
+        autoIncrement: true,
+    },
+];
+
+const db = new IdxdDB('MyDB')
+    .version(1, v1schema)
+    .version(2, v2schema)
+    .open();
+```
+
+In The above example, `storeB` will create on version 2.
+
+IdxdDB will create database and store from the leatest version schema. So, IdxdDB require a complete schema in that version.
+
+- Store will created when schema has new store description.
+- Store will updated when index description of the store description is changed.
+- Store will deleted when store description dose not exist.
+
+When deleting store, records in the store is also deleted. You can get lostdata if you want.
+
+```js
+
+const db = new IdxdDB('MyDB')
+    .version(1, v1schema)
+    .version(2, v2schema, function (lostdata /*{[store]: [...record]}*/) {
+        console.log(lostdata);
+    })
+    .open();
+```
+
+You can see more example at `test/src/startup.test.ts`.
+
 ### Testing on Node.js
 
 ```
@@ -467,8 +523,3 @@ const db = new IdxdDB<Stores>('DatabaseName')
 ### More API detail and example
 
 See `/src` and `test/src`.
-
-
-## TODO
-
-- [ ] data migration
