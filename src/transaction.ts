@@ -4,15 +4,22 @@ export type Mode = 'r' | 'rw';
 export const parseMode = (mode: Mode) => {
     return mode === 'rw' ? 'readwrite' : 'readonly';
 };
-export interface Selector<T> {
-    <K extends keyof T>(store: K): Operation<T, K>;
-}
+
 export interface AbortFunciton {
     (): () => void;
 }
+export interface BackendAPI {
+    db: IDBDatabase;
+    trx: IDBTransaction;
+    KeyRange: typeof IDBKeyRange;
+}
+export interface Selector<T> {
+    <K extends keyof T>(store: K): Operation<T, K>;
+    abort: AbortFunciton;
+}
 export interface Executor<T> {
     // https://github.com/cotttpan/idxddb/issues/5
-    (selector: Selector<T> & { abort: AbortFunciton }): IterableIterator<any>;
+    (selector: Selector<T>, backendApi: BackendAPI): IterableIterator<any>;
 }
 
 /**
@@ -28,14 +35,15 @@ export interface Executor<T> {
  */
 export function create<T, K extends keyof T>(scope: K | K[], mode: Mode, executor: Executor<T>) {
     return (resolve: Function, reject: Function) => (
-        backend: { db: IDBDatabase, KeyRange: typeof IDBKeyRange },
+        backendApi: { db: IDBDatabase, KeyRange: typeof IDBKeyRange },
         transaction?: IDBTransaction,
     ) => {
-        const trx = transaction ? transaction : backend.db.transaction(scope, parseMode(mode));
-        const select: any = (store: K) => new Operation<T, K>(backend.KeyRange, trx.objectStore(store));
+        const trx = transaction ? transaction : backendApi.db.transaction(scope, parseMode(mode));
+
+        const select: any = (store: K) => new Operation<T, K>(backendApi.KeyRange, trx.objectStore(store));
         select.abort = () => () => trx.abort();
 
-        const i = executor(select);
+        const i = executor(select, { trx, ...backendApi });
 
         trx.addEventListener('error', handleReject);
         trx.addEventListener('abort', handleReject);
