@@ -1,59 +1,114 @@
-import { Schema, IdxdDB, IdxdDBOptions } from './../src/idxddb';
+import { IdxdDBOptions } from './../src/idxddb';
 
 /* Interface and Schema
 ------------------------------- */
-export interface StoreA {
-    id?: number;
-    a: string;
-    nest: { b: number };
-    c: boolean;
+export namespace V1 {
+    export interface StoreA {
+        id?: number;
+        a: number;
+    }
+    export interface StoreB {
+        a: number;
+    }
+    export interface Stores {
+        storeA: StoreA;
+        storeB: StoreB;
+    }
+    export const schema = [
+        {
+            name: 'storeA',
+            keyPath: 'id',
+            autoIncrement: true,
+            indexes: [
+                { keyPath: 'a' },
+            ],
+        },
+        {   // out-of-line key
+            name: 'storeB',
+            autoIncrement: true,
+        },
+    ];
 }
 
-export interface StoreB {
-    a: number;
+export namespace V2 {
+    export interface StoreA extends V1.StoreA {
+        b: {
+            c: boolean;
+        };
+    }
+    export interface StoreC {
+        id?: number;
+        a: { b: boolean };
+    }
+    export interface Stores {
+        storeA: StoreA;
+        storeC: StoreC;
+    }
+
+    export const schema = [
+        {
+            name: 'storeA',
+            keyPath: 'id',
+            autoIncrement: true,
+            indexes: [
+                { keyPath: 'a' },
+                { keyPath: 'b.c', as: 'c' }, // new index
+            ],
+        },
+        {
+            name: 'storeC',
+            keyPath: 'id',
+            autoIncrement: true,
+            indexes: [
+                { keyPath: 'a.b', as: 'b' }, // nested index
+            ],
+        },
+    ];
 }
 
-export interface Stores {
-    storeA: StoreA;
-    storeB: StoreB;
+export namespace V3 {
+    export interface Stores {
+        storeA: V2.StoreA;
+        storeB: V1.StoreB;
+        storeC: V2.StoreC;
+    }
+    export const schema = [
+        ...V2.schema,
+        {   // out-of-line key
+            name: 'storeB',
+            autoIncrement: true,
+        },
+    ];
+    export const record = {
+        sA(id: number): Stores['storeA'] {
+            return {
+                id,
+                a: id,
+                b: {
+                    c: false,
+                },
+            };
+        },
+        sB(): Stores['storeB'] {
+            return {
+                a: 1,
+            };
+        },
+        sC(id: number): Stores['storeC'] {
+            return {
+                id,
+                a: {
+                    b: false,
+                },
+            };
+        },
+    };
 }
 
-export const schema: Schema = [
-    // with primary key and index
-    {
-        name: 'storeA',
-        keyPath: 'id',
-        autoIncrement: true,
-        indexes: [
-            { keyPath: 'a' },
-            { keyPath: 'nest.b', as: 'b' },
-        ],
-    },
-    // without primary key
-    {
-        name: 'storeB',
-        autoIncrement: true,
-    },
-];
-
-/* Helper Functoins
+/* options
 ------------------------------- */
-
 export const options: IdxdDBOptions = {};
 if (process.env.TEST_ENV === 'node') {
     options.IDBFactory = require('fake-indexeddb');
     options.IDBKeyRange = require('fake-indexeddb/lib/FDBKeyRange');
-}
-
-export const createDB = (fn: (db: IdxdDB<Stores>) => any) => () => {
-    const db = new IdxdDB<Stores>('sample', options)
-        .version(1, [schema[0]])
-        .version(2, schema)
-        .open();
-    fn(db);
-};
-
-export namespace data {
-    export const storeA = (id: number) => ({ id, a: `a-${id}`, nest: { b: id }, c: false });
-    export const storeB = (a: number) => ({ a });
 }

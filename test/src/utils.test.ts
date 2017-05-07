@@ -19,6 +19,14 @@ describe('last', () => {
     });
 });
 
+describe('includes', () => {
+    const arr = [1, 2, 3];
+    it('return true if element include in arr', () => {
+        assert(Utils.includes(arr, 1));
+        assert(!Utils.includes(arr, 4));
+    });
+});
+
 describe('tap', () => {
     it('implement function as side effect', () => {
         const f = sinon.spy();
@@ -46,3 +54,45 @@ describe('bundle', () => {
     });
 });
 
+describe('difference', () => {
+    it('return difference set', () => {
+        const r = Utils.difference([3, 1, 2], [1, 4]);
+        assert.deepEqual(r, [3, 2]);
+    });
+});
+
+describe('intersection?', () => {
+    it('return intersection set', () => {
+        const r = Utils.intersection([3, 1, 2, 5], [1, 4, 5]);
+        assert.deepEqual(r, [1, 5]);
+    });
+});
+
+
+describe('constant', () => {
+    it('always return same value', () => {
+        const f = Utils.constant(1);
+        let i = 0;
+        while (++i < 3) assert.equal(f(), 1);
+    });
+});
+
+describe('onlyThatTime', () => {
+    it('call callback just once when function is called n times and can pass params it', () => {
+        const spy = sinon.spy();
+        const f: any = Utils.onlyThatTime(3, spy);
+        let i = 0;
+        while (++i < 5) f(i);
+        assert(spy.calledOnce);
+        assert(spy.calledWith(3));
+    });
+
+    it('call callback when time is 0 and call initial params', () => {
+        const spy = sinon.spy();
+        const f = Utils.onlyThatTime(0, spy as any, [0]);
+        let i = 0;
+        while (++i < 5) f(i);
+        assert(spy.calledOnce);
+        assert(spy.calledWith(0));
+    });
+});

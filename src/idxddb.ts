@@ -1,10 +1,10 @@
 import Minitter, { Listener } from 'minitter';
-import * as Luncher from './luncher';
-import SimpleCrudApi from './simple-curd';
+import * as StartUp from './startup';
+import SimpleCrudApi from './simple-crud';
 import * as Trx from './transaction';
 import * as u from './utils';
 
-export { Schema, IndexDescription, StoreDescription } from './luncher';
+export { Schema, IndexDescription, StoreDescription } from './startup';
 export { Mode, Selector, AbortFunciton, Executor } from './transaction';
 
 export interface IdxdDBOptions {
@@ -34,7 +34,7 @@ export class IdxdDB<T> {
     readonly Factory: IDBFactory;
     readonly KeyRange: typeof IDBKeyRange;
     protected _events = new Minitter<EventTypes>();
-    protected _versionMap: Map<number, Luncher.Schema> = new Map();
+    protected _versionMap: StartUp.VersionMap = new Map();
     protected _isOpen: boolean = false;
 
     constructor(name: string, options: IdxdDBOptions = {}) {
@@ -77,15 +77,15 @@ export class IdxdDB<T> {
     /* ====================================
      * Database
     ======================================= */
-    version(no: number, schema: Luncher.Schema) {
-        this._versionMap.set(no, schema);
+    version<T>(no: number, schema: StartUp.Schema, rescue?: StartUp.RescueFunction<T>) {
+        this._versionMap.set(no, { schema, rescue });
         return this;
     }
 
     open() {
         if (this.isOpen) return this;
 
-        const [version, schema] = u.last(this._versionMap);
+        const [version] = u.last(this._versionMap);
         const req = this.Factory.open(this.dbName, version);
         const onerror = (err: DOMError) => this._events.emit('error', err);
         const onsuccess = (db: IDBDatabase) => {
@@ -94,9 +94,9 @@ export class IdxdDB<T> {
             this._events.emit('ready', { db, KeyRange: this.KeyRange });
         };
 
-        req.onupgradeneeded = Luncher.onupgradeneeded(schema);
-        req.onsuccess = Luncher.onsuccess(onsuccess);
-        req.onerror = Luncher.onerror(onerror);
+        req.onupgradeneeded = StartUp.onupgradeneeded(this._versionMap);
+        req.onsuccess = StartUp.onsuccess(onsuccess);
+        req.onerror = StartUp.onerror(onerror);
 
         return this;
     }
@@ -130,7 +130,7 @@ export class IdxdDB<T> {
     /**
      * Make task implementation awaitable until database is opened.
      *
-     * @param {(resolve: Function, reject: Function) => (self: IdxdDB<T>) => any} task
+     * @param {(resolve: Function, reject: Function) => (db: { db: IDBDatabase, KeyRange: typeof IDBKeyRange }) => any} task
      * @returns {Promise<any>}
      *
      */
