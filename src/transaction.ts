@@ -36,7 +36,7 @@ export interface Executor<T> {
 export function create<T, K extends keyof T>(scope: K | K[], mode: Mode, executor: Executor<T>) {
     return (resolve: Function, reject: Function) => (
         backendApi: { db: IDBDatabase, KeyRange: typeof IDBKeyRange },
-        transaction?: IDBTransaction,
+        transaction?: IDBTransaction
     ) => {
         const trx = transaction ? transaction : backendApi.db.transaction(scope, parseMode(mode));
 

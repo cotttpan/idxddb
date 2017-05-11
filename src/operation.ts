@@ -147,7 +147,7 @@ export function clear<T, K extends keyof T>(this: Operation<T, K>) {
         const req = this.store.openCursor();
         const reciver = u.bundle<IDBCursorWithValue>(
             (cursor) => records.push(cursor.value),
-            (cursor) => cursor.delete(),
+            (cursor) => cursor.delete()
         );
         req.addEventListener('success', res.eachValue(next.bind(null, records), reciver));
         return req;
@@ -334,7 +334,7 @@ export namespace _batch {
             const pipe = FindPhase.compose(this.queue, records.push.bind(records));
             const reciver = u.bundle<IDBCursorWithValue>(
                 (cursor) => pipe(cursor.value),
-                (cursor) => cursor.delete(),
+                (cursor) => cursor.delete()
             );
             const req = this.getRequest();
             req.addEventListener('success', res.eachValue(next.bind(null, records), reciver));
@@ -355,8 +355,8 @@ export namespace _batch {
                     _req.addEventListener('success',
                         res.withGet(
                             records.push.bind(records),
-                            self._operation,
-                        ),
+                            self._operation
+                        )
                     );
                 }
             };

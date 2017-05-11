@@ -1,4 +1,4 @@
-const webpackConfig = require('./webpack.config')
+const webpackConfig = require('./webpack.config');
 module.exports = function (config) {
     config.set({
 
@@ -33,7 +33,7 @@ module.exports = function (config) {
             devtool: 'inline-source-map',
             module: webpackConfig.module,
             plugins: webpackConfig.plugins,
-            resolve: webpackConfig.resolve,
+            resolve: webpackConfig.resolve
         },
 
         webpackMiddleware: {
@@ -105,5 +105,5 @@ module.exports = function (config) {
         // Concurrency level
         // how many browser should be started simultaneous
         concurrency: Infinity
-    })
-}
+    });
+};

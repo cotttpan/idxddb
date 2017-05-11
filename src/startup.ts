@@ -33,7 +33,7 @@ export const onupgradeneeded = (versionMap: VersionMap) => function (this: IDBOp
     const operation = {
         create: $Store.creator(db),
         update: $Store.updater(trx),
-        delete: $Store.deleter(db, trx),
+        delete: $Store.deleter(db, trx)
     };
 
     /*
@@ -50,7 +50,7 @@ export const onupgradeneeded = (versionMap: VersionMap) => function (this: IDBOp
 
         const sNames = {
             exists: Array.from(db.objectStoreNames),
-            desced: Object.keys($schema),
+            desced: Object.keys($schema)
         };
 
         const next = _.bundle(rescue || _.noop, migrate.bind(null, v + 1));
@@ -159,7 +159,7 @@ export namespace $Index {
     export function updateStoreIndexs(store: IDBObjectStore, descs: Description[]) {
         const names = {
             exists: Array.from(store.indexNames),
-            desced: descs.map(getName),
+            desced: descs.map(getName)
         };
 
         _.difference(names.desced, names.exists).forEach(createIndex(store));
