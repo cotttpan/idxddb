@@ -1,4 +1,4 @@
-import Minitter, { Listener } from 'minitter';
+import Minitter from 'minitter';
 import * as StartUp from './startup';
 import SimpleCrudApi from './simple-crud';
 import * as Trx from './transaction';
@@ -65,14 +65,14 @@ export class IdxdDB<T> {
     /* ====================================
      * Events
     ======================================= */
-    on<K extends keyof EventTypes>(event: K, listener: Listener<EventTypes, K>) {
-        this._events.on(event, listener);
+    get events() {
+        return {
+            on: this._on,
+            once: this._once
+        };
     }
-
-    once<K extends keyof EventTypes>(event: K, listener: Listener<EventTypes, K>) {
-        this._events.once(event, listener);
-    }
-
+    private _on: Minitter<EventTypes>['on'] = this._events.on.bind(this._events);
+    private _once: Minitter<EventTypes>['once'] = this._events.once.bind(this._events);
 
     /* ====================================
      * Database

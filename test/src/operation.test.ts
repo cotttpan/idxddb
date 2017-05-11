@@ -11,7 +11,7 @@ describe('transaction/operation', () => {
             .version(2, V2.schema)
             .version(3, V3.schema)
             .open();
-        db.on('ready', resolve);
+        db.events.on('ready', resolve);
     }));
 
     after(() => db.delete());

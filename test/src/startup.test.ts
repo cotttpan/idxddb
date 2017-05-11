@@ -8,7 +8,7 @@ describe('create database', () => {
     let db: IdxdDB<V1.Stores>;
     before(() => new Promise(resolve => {
         db = new IdxdDB<V1.Stores>('TestDB', options).version(1, V1.schema).open();
-        db.on('ready', resolve);
+        db.events.on('ready', resolve);
     }));
     after(() => db.delete());
 
@@ -49,14 +49,14 @@ describe('migration - crate store', () => {
     let db: IdxdDB<V2.Stores>;
     before(() => new Promise(resolve => {
         db = new IdxdDB<V2.Stores>('TestDB', options).version(1, V1.schema).open();
-        db.on('ready', resolve);
+        db.events.on('ready', resolve);
     }));
     after(() => db.delete());
 
     describe('create store', () => {
         beforeEach(() => db.close().version(2, V2.schema).open());
         it('create new store by schema', (done) => {
-            db.once('ready', () => {
+            db.events.once('ready', () => {
                 assert.equal(db.currentVersion, 2);
                 assert(includes(db.storeNames, 'storeC'));
                 done();
@@ -77,7 +77,7 @@ describe('migration - delete store', () => {
         before(() => new Promise((resolve) => {
             db.store<any>('storeB').bulkSet(willDeletedData).then(() => {
                 db.close().version(2, V2.schema, spy).open();
-                db.once('ready', resolve);
+                db.events.once('ready', resolve);
             });
         }));
 
@@ -96,7 +96,7 @@ describe('migration - update store indexes', () => {
     let db: IdxdDB<V2.Stores>;
     before(() => new Promise(resolve => {
         db = new IdxdDB<V2.Stores>('TestDB', options).version(1, V1.schema).open();
-        db.on('ready', resolve);
+        db.events.on('ready', resolve);
     }));
     after(() => db.delete());
 
@@ -112,7 +112,7 @@ describe('migration - update store indexes', () => {
     describe('migrate v1 -> v2', () => {
         before(() => new Promise(resolve => {
             db.close().version(2, V2.schema).open();
-            db.on('ready', resolve);
+            db.events.on('ready', resolve);
         }));
 
         it('have index "c" on storeA', () => {
@@ -133,7 +133,7 @@ describe('migration - when version v1 -> v3 at once', () => {
             .version(2, V2.schema, spy)
             .version(3, V2.schema, spy)
             .open();
-        db.on('ready', resolve);
+        db.events.on('ready', resolve);
     }));
     after(() => db.delete());
 
