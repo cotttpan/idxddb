@@ -16,6 +16,8 @@ class IdxdDB {
         this._events = new minitter_1.default();
         this._versionMap = new Map();
         this._isOpen = false;
+        this._on = this._events.on.bind(this._events);
+        this._once = this._events.once.bind(this._events);
         this.dbName = name;
         this.Factory = options.IDBFactory || indexedDB;
         this.KeyRange = options.IDBKeyRange || IDBKeyRange;
@@ -38,11 +40,11 @@ class IdxdDB {
     /* ====================================
      * Events
     ======================================= */
-    on(event, listener) {
-        this._events.on(event, listener);
-    }
-    once(event, listener) {
-        this._events.once(event, listener);
+    get events() {
+        return {
+            on: this._on,
+            once: this._once
+        };
     }
     /* ====================================
      * Database

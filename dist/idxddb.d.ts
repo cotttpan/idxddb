@@ -1,4 +1,4 @@
-import Minitter, { Listener } from 'minitter';
+import Minitter from 'minitter';
 import * as StartUp from './startup';
 import SimpleCrudApi from './simple-crud';
 import * as Trx from './transaction';
@@ -35,8 +35,12 @@ export declare class IdxdDB<T> {
     readonly currentVersion: number;
     readonly storeNames: keyof T[];
     readonly isOpen: boolean;
-    on<K extends keyof EventTypes>(event: K, listener: Listener<EventTypes, K>): void;
-    once<K extends keyof EventTypes>(event: K, listener: Listener<EventTypes, K>): void;
+    readonly events: {
+        on: <K extends "error" | "ready">(event: K, listener: (arg: EventTypes[K]) => any) => (arg: EventTypes[K]) => any;
+        once: <K extends "error" | "ready">(event: K, listener: (arg: EventTypes[K]) => any) => void;
+    };
+    private _on;
+    private _once;
     version<T>(no: number, schema: StartUp.Schema, rescue?: StartUp.RescueFunction<T>): this;
     open(): this;
     close(): this;

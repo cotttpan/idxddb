@@ -17,7 +17,7 @@ exports.onupgradeneeded = (versionMap) => function (ev) {
     const operation = {
         create: $Store.creator(db),
         update: $Store.updater(trx),
-        delete: $Store.deleter(db, trx),
+        delete: $Store.deleter(db, trx)
     };
     /*
       * 1. [createStores, updateStoresIndexes, deleteStores(with buckup)]
@@ -32,7 +32,7 @@ exports.onupgradeneeded = (versionMap) => function (ev) {
         const $schema = _.groupBy(schema, 'name');
         const sNames = {
             exists: Array.from(db.objectStoreNames),
-            desced: Object.keys($schema),
+            desced: Object.keys($schema)
         };
         const next = _.bundle(rescue || _.noop, migrate.bind(null, v + 1));
         (function __CREATE_STORE__() {
@@ -122,7 +122,7 @@ var $Index;
     function updateStoreIndexs(store, descs) {
         const names = {
             exists: Array.from(store.indexNames),
-            desced: descs.map(getName),
+            desced: descs.map(getName)
         };
         _.difference(names.desced, names.exists).forEach(createIndex(store));
         _.difference(names.exists, names.desced).forEach(deleteIndex(store));
