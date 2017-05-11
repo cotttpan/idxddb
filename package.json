@@ -10,7 +10,7 @@
     "minitter": "^0.0.5"
   },
   "devDependencies": {
-    "@cotto/tslint-config": "^0.0.3",
+    "@cotto/tslint-config": "^0.0.4",
     "@types/mocha": "^2.2.41",
     "@types/node": "^7.0.18",
     "@types/power-assert": "^1.4.29",
@@ -22,7 +22,7 @@
     "babel-preset-power-assert": "^1.0.0",
     "babili-webpack-plugin": "^0.0.11",
     "espower-typescript": "^8.0.0",
-    "fake-indexeddb": "^2.0.2",
+    "fake-indexeddb": "^2.0.3",
     "jsdom": "^10.1.0",
     "karma": "^1.7.0",
     "karma-chrome-launcher": "^2.1.1",
