@@ -10,11 +10,6 @@ export class Operation<T, K extends keyof T> {
     store: IDBObjectStore;
     target: K; // store name
 
-    constructor(KeyRange: typeof IDBKeyRange, store: IDBObjectStore) {
-        this.KeyRange = KeyRange;
-        this.store = store;
-    }
-
     count: typeof count;
     get: typeof get;
     getAll: typeof getAll;
@@ -22,6 +17,11 @@ export class Operation<T, K extends keyof T> {
     set: typeof set;
     delete: typeof del;
     clear: typeof clear;
+
+    constructor(KeyRange: typeof IDBKeyRange, store: IDBObjectStore) {
+        this.KeyRange = KeyRange;
+        this.store = store;
+    }
 }
 
 Operation.prototype.count = count;
@@ -42,6 +42,7 @@ Operation.prototype.find = find;
  *
  */
 export function count<T, K extends keyof T>(this: Operation<T, K>) {
+    // tslint:disable:no-shadowed-variable
     return (next: Function) => {
         let count = 0;
         const reciver = () => ++count;
@@ -187,9 +188,19 @@ export function find<T, K extends keyof T>(this: Operation<T, K>, a1: any, a2?: 
  * FindPhase
 ================================================================= */
 export class FindPhase<T> {
+    static compose(q: Function[], next: (record: any) => any) {
+        return q.reduceRight((a, b) => b(a), next);
+    }
+
     readonly _operation: Operation<any, any>;
     getRequest: () => IDBRequest;
     queue: Function[] = [];
+
+    /////////////// end operation /////////////////
+    each: typeof each;
+    toArray: typeof toArray;
+    batch: typeof batch;
+
     constructor(getRequest: () => IDBRequest, operation: Operation<any, any>) {
         this._operation = operation;
         this.getRequest = getRequest;
@@ -238,14 +249,6 @@ export class FindPhase<T> {
         return this as any as FindPhase<R>;
     }
 
-    /////////////// end operation /////////////////
-    each: typeof each;
-    toArray: typeof toArray;
-    batch: typeof batch;
-
-    static compose(q: Function[], next: (record: any) => any) {
-        return q.reduceRight((a, b) => b(a), next);
-    }
 }
 
 FindPhase.prototype.each = each;
@@ -328,6 +331,7 @@ export function batch<T>(this: FindPhase<T>, operation: 'delete' | 'update', fn?
 }
 
 export namespace _batch {
+    // tslint:disable:no-shadowed-variable
     export function del<T>(this: FindPhase<T>) {
         return (next: Function) => {
             const records: T[] = [];

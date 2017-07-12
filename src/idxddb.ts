@@ -30,12 +30,15 @@ export interface BackendAPI {
  */
 export class IdxdDB<T> {
     readonly dbName: string;
-    protected _db: IDBDatabase;
     readonly Factory: IDBFactory;
     readonly KeyRange: typeof IDBKeyRange;
+    protected _db: IDBDatabase;
     protected _events = new Minitter<EventTypes>();
     protected _versionMap: StartUp.VersionMap = new Map();
     protected _isOpen: boolean = false;
+    private _on: Minitter<EventTypes>['on'] = this._events.on.bind(this._events);
+    private _once: Minitter<EventTypes>['once'] = this._events.once.bind(this._events);
+
 
     constructor(name: string, options: IdxdDBOptions = {}) {
         this.dbName = name;
@@ -71,13 +74,11 @@ export class IdxdDB<T> {
             once: this._once
         };
     }
-    private _on: Minitter<EventTypes>['on'] = this._events.on.bind(this._events);
-    private _once: Minitter<EventTypes>['once'] = this._events.once.bind(this._events);
 
     /* ====================================
      * Database
     ======================================= */
-    version<T>(no: number, schema: StartUp.Schema, rescue?: StartUp.RescueFunction<T>) {
+    version<U>(no: number, schema: StartUp.Schema, rescue?: StartUp.RescueFunction<U>) {
         this._versionMap.set(no, { schema, rescue });
         return this;
     }
