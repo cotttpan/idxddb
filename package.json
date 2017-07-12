@@ -45,6 +45,7 @@
     "webpack-notifier": "^1.5.0"
   },
   "files": [
+    "es",
     "dist",
     "README.md"
   ],
@@ -53,21 +54,26 @@
     "typescript"
   ],
   "license": "MIT",
+  "homepage": "https://github.com/cotttpan/idxddb",
   "main": "dist/index.js",
+  "jsnext:main": "es/index.js",
+  "module": "es/index.js",
+  "types": "dist/index.d.ts",
   "repository": {
     "type": "git",
     "url": "https://github.com/cotttpan/idxddb.git"
   },
   "scripts": {
+    "build": "run-p build:**",
     "build:dist": "tsc",
-    "build:webpack": "TEST_ENV=browser webpack",
+    "build:es": "tsc --module es2015 --outDir es",
     "clean": "npm-run-all clean:** -p",
     "clean:dist": "rimraf ./dist",
+    "clean:es": "rimraf ./es",
     "clean:webpack": "rimraf ./public/**/*.bundle.*",
     "lint": "tslint src/**/*.ts",
     "start": "TEST_ENV=browser webpack-dev-server",
     "test:karma": "TEST_ENV=browser NODE_ENV=test karma start",
     "test:mocha": "TEST_ENV=node NODE_ENV=test mocha"
-  },
-  "types": "dist/index.d.ts"
+  }
 }
