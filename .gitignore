@@ -47,3 +47,4 @@ typings.json
 ### Project ####
 .awcache
 refs
+dist
